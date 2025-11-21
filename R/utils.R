@@ -7,6 +7,9 @@
 #' @keywords internal
 #' @export
 read_wav <- function(wav_path) {
+  # Expand tilde and other path shortcuts
+  wav_path <- path.expand(wav_path)
+
   if (!file.exists(wav_path)) {
     stop("WAV file not found: ", wav_path)
   }

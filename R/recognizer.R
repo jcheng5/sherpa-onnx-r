@@ -33,7 +33,8 @@ OfflineRecognizer <- R6::R6Class(
     #'   - A local directory path containing model files
     #' @param language Language code for multilingual models (default: "auto").
     #'   Used for Whisper and SenseVoice models.
-    #' @param num_threads Number of threads for inference (default: 1)
+    #' @param num_threads Number of threads for inference (default: NULL = auto-detect).
+    #'   If NULL, uses parallel::detectCores() with a maximum of 4 threads.
     #' @param provider Execution provider: "cpu", "cuda", or "coreml" (default: "cpu")
     #' @param verbose Logical, whether to print status messages (default: TRUE)
     #'
@@ -41,8 +42,11 @@ OfflineRecognizer <- R6::R6Class(
     #'
     #' @examples
     #' \dontrun{
-    #' # Create recognizer with shorthand
+    #' # Create recognizer with shorthand (auto-detects threads)
     #' rec <- OfflineRecognizer$new(model = "whisper-tiny")
+    #'
+    #' # Create recognizer with specific thread count
+    #' rec <- OfflineRecognizer$new(model = "whisper-tiny", num_threads = 4)
     #'
     #' # Create recognizer with HuggingFace repo
     #' rec <- OfflineRecognizer$new(
@@ -54,9 +58,20 @@ OfflineRecognizer <- R6::R6Class(
     #' }
     initialize = function(model = "parakeet-v3",
                          language = "auto",
-                         num_threads = 1,
+                         num_threads = NULL,
                          provider = "cpu",
                          verbose = TRUE) {
+
+      # Auto-detect optimal thread count if not specified
+      if (is.null(num_threads)) {
+        available_cores <- parallel::detectCores(logical = FALSE)
+        # Use up to 4 threads by default (diminishing returns beyond this)
+        num_threads <- min(available_cores, 4)
+        if (verbose) {
+          message(sprintf("Auto-detected %d physical cores, using %d threads",
+                         available_cores, num_threads))
+        }
+      }
 
       # Resolve model
       model_info <- resolve_model(model, verbose = verbose)
@@ -72,6 +87,10 @@ OfflineRecognizer <- R6::R6Class(
       model_path <- if (!is.null(config$model)) config$model else ""
       tokens_path <- config$tokens
 
+      # Set modeling_unit for transducer models
+      # "cjkchar" is needed for NeMo Parakeet and other CJK models
+      modeling_unit <- if (config$model_type == "transducer") "cjkchar" else ""
+
       # Create recognizer via C++ wrapper
       if (verbose) message("Creating recognizer...")
       private$recognizer_ptr <- create_offline_recognizer_(
@@ -84,7 +103,8 @@ OfflineRecognizer <- R6::R6Class(
         tokens_path = tokens_path,
         num_threads = as.integer(num_threads),
         provider = provider,
-        language = language
+        language = language,
+        modeling_unit = modeling_unit
       )
 
       if (verbose) message("Recognizer created successfully")
@@ -110,6 +130,9 @@ OfflineRecognizer <- R6::R6Class(
     #' cat("Transcription:", result$text, "\n")
     #' }
     transcribe = function(wav_path) {
+      # Expand tilde and other path shortcuts
+      wav_path <- path.expand(wav_path)
+
       if (!file.exists(wav_path)) {
         stop("WAV file not found: ", wav_path)
       }

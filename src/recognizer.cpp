@@ -39,7 +39,8 @@ SEXP create_offline_recognizer_(
     std::string tokens_path,
     int num_threads,
     std::string provider,
-    std::string language) {
+    std::string language,
+    std::string modeling_unit) {
 
   // Create config
   SherpaOnnxOfflineRecognizerConfig config = get_default_config();
@@ -47,6 +48,11 @@ SEXP create_offline_recognizer_(
   config.model_config.num_threads = num_threads;
   config.model_config.provider = provider.c_str();
   config.model_config.tokens = tokens_path.c_str();
+
+  // Set modeling_unit if provided (for transducer models)
+  if (!modeling_unit.empty()) {
+    config.model_config.modeling_unit = modeling_unit.c_str();
+  }
 
   // Set model-specific paths
   if (model_type == "whisper") {

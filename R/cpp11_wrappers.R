@@ -4,11 +4,12 @@
 #' @keywords internal
 create_offline_recognizer_ <- function(model_dir, model_type, encoder_path,
                                        decoder_path, joiner_path, model_path,
-                                       tokens_path, num_threads, provider, language) {
+                                       tokens_path, num_threads, provider, language,
+                                       modeling_unit) {
   .Call(
     "_sherpa_onnx_create_offline_recognizer_",
     model_dir, model_type, encoder_path, decoder_path, joiner_path,
-    model_path, tokens_path, num_threads, provider, language,
+    model_path, tokens_path, num_threads, provider, language, modeling_unit,
     PACKAGE = "sherpa.onnx"
   )
 }
