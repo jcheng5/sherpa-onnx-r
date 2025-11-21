@@ -126,7 +126,7 @@ cpp11::list read_wav_(std::string wav_path);
 
 ```
 sherpa-onnx-r/
-├── CLAUDE.md                    # Note: sherpa-onnx at /Users/jcheng/Development/k2-fsa/sherpa-onnx
+├── CLAUDE.md
 ├── plans/
 │   └── 001-INITIAL-DESIGN.md   # This document
 ├── DESCRIPTION                  # Package metadata (Imports: R6, hfhub, cpp11, rappdirs)
@@ -463,7 +463,7 @@ OfflineRecognizer <- R6::R6Class(
 
 ## References
 
-- sherpa-onnx source: `/Users/jcheng/Development/k2-fsa/sherpa-onnx`
+- sherpa-onnx source: https://github.com/k2-fsa/sherpa-onnx
 - sherpa-onnx releases: https://github.com/k2-fsa/sherpa-onnx/releases
 - sherpa-onnx C API: `sherpa-onnx/c-api/c-api.h`
 - C API example: `c-api-examples/sense-voice-c-api.c`

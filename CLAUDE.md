@@ -8,13 +8,15 @@ The sherpa.onnx R package is successfully implemented and working. It provides o
 
 ## Building and Installing
 
-**Important**: Must use `--no-staged-install` flag due to pre-built binary paths:
+Standard installation works with R's staged install:
 
 ```bash
-cd /Users/jcheng/Development/posit-dev
+cd ..
 R CMD build sherpa-onnx-r
-R CMD INSTALL --no-staged-install sherpa.onnx_0.1.0.tar.gz
+R CMD INSTALL sherpa.onnx_0.1.0.tar.gz
 ```
+
+**Note**: The package now uses architecture-specific (thin) binaries instead of universal binaries, which resolves previous staged install issues.
 
 ## Using the Package
 
@@ -41,9 +43,9 @@ Models are cached in: `~/.cache/huggingface/hub/`
 
 ## sherpa-onnx Source Location
 
-The sherpa-onnx C++ library source code is located at:
+The sherpa-onnx C++ library source code may or may not be located at:
 ```
-/Users/jcheng/Development/k2-fsa/sherpa-onnx
+../../k2-fsa/sherpa-onnx
 ```
 
 This includes:
@@ -69,9 +71,10 @@ Properties:
 ## Key Implementation Details
 
 1. **hfhub Integration**: Uses `hfhub::hub_snapshot()` for reliable model downloads
-2. **Binary Management**: Pre-built binaries (~40MB) download during installation via `configure` script
+2. **Binary Management**: Architecture-specific (thin) binaries (~31-34MB) download during installation via `configure` script from sherpa-onnx JNI builds
 3. **C++ Wrappers**: `R/cpp11_wrappers.R` provides proper `.Call()` interfaces to C++ functions
 4. **Model Resolution**: Supports shorthand names, HuggingFace repos, and local paths
+5. **Staged Install Compatible**: Uses thin binaries instead of universal binaries to avoid R's staged install bug (see `notes/STAGED_INSTALL_ISSUE.md`)
 
 ## Documentation
 
@@ -79,3 +82,7 @@ Properties:
 - Outcome: `plans/001-INITIAL-DESIGN.outcome.md`
 - Usage: `README.md`
 - Quick Start: `QUICK_START.md`
+- Implementation Summary: `notes/IMPLEMENTATION_SUMMARY.md`
+- Next Steps: `notes/NEXT_STEPS.md`
+- Staged Install Issue: `notes/STAGED_INSTALL_ISSUE.md` (technical details on universal vs thin binaries)
+- Thin Binary Fix: `notes/THIN_BINARY_FIX.md` (solution documentation)

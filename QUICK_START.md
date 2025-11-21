@@ -3,9 +3,6 @@
 ## Installation
 
 ```bash
-# From the package directory
-cd /Users/jcheng/Development/posit-dev/sherpa-onnx-r
-
 # Run configure to download binaries
 ./configure
 
@@ -36,7 +33,7 @@ available_models()
 ## File Structure
 
 ```
-sherpa-onnx-r/
+/
 ├── DESCRIPTION           # Package metadata
 ├── NAMESPACE            # Exports
 ├── LICENSE              # MIT license

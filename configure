@@ -29,8 +29,19 @@ else
 
   case "$OS" in
     Darwin)
-      PLATFORM="osx-universal2"
-      ARCHIVE="sherpa-onnx-v1.12.17-osx-universal2-shared.tar.bz2"
+      # Use architecture-specific (thin) binaries from JNI builds
+      # This avoids R's staged install bug with universal binaries
+      if [ "$ARCH" = "arm64" ]; then
+        PLATFORM="osx-arm64"
+        ARCHIVE="sherpa-onnx-v1.12.17-osx-arm64-jni.tar.bz2"
+      elif [ "$ARCH" = "x86_64" ]; then
+        PLATFORM="osx-x86_64"
+        ARCHIVE="sherpa-onnx-v1.12.17-osx-x86_64-jni.tar.bz2"
+      else
+        echo "ERROR: Unsupported macOS architecture: $ARCH"
+        echo "Set SHERPA_ONNX_USE_SYSTEM=1 to use system sherpa-onnx"
+        exit 1
+      fi
       LIB_EXT="dylib"
       ;;
     Linux)

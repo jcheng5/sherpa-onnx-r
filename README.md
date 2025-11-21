@@ -19,12 +19,14 @@ An R package that provides offline speech recognition (audio file to text transc
 
 ```r
 # Install dependencies
-install.packages(c("R6", "cpp11", "rappdirs"))
+install.packages(c("R6", "cpp11", "rappdirs", "hfhub"))
 
 # Install sherpa.onnx
 # The configure script will automatically download pre-built binaries
 install.packages("sherpa.onnx", type = "source")
 ```
+
+**Note**: The package downloads architecture-specific binaries (31-34 MB) during installation. On macOS, separate binaries are provided for Apple Silicon (arm64) and Intel (x86_64) processors.
 
 ### Using system sherpa-onnx
 
@@ -236,12 +238,17 @@ If you encounter issues during installation:
 
 ```r
 # Check if binaries were downloaded
-list.files("inst/libs", recursive = TRUE)
+list.files(system.file("libs", package = "sherpa.onnx"))
+
+# Verify architecture matches your system
+system("uname -m")  # Should be arm64 or x86_64 on macOS
 
 # Try using system sherpa-onnx
 Sys.setenv(SHERPA_ONNX_USE_SYSTEM = "1")
 install.packages("sherpa.onnx", type = "source")
 ```
+
+For technical details about the binary architecture and R's staged install process, see `notes/STAGED_INSTALL_ISSUE.md` and `notes/THIN_BINARY_FIX.md` in the package source.
 
 ### Model Download Issues
 
