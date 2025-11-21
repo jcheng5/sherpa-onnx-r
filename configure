@@ -1,0 +1,124 @@
+#!/bin/bash
+
+# Configuration script for sherpa.onnx R package
+# Downloads and extracts sherpa-onnx binaries for the current platform
+
+set -e
+
+echo "Configuring sherpa.onnx R package..."
+
+# Check for SHERPA_ONNX_USE_SYSTEM flag
+if [ "$SHERPA_ONNX_USE_SYSTEM" = "1" ]; then
+  echo "Using system-installed sherpa-onnx"
+
+  # Try pkg-config
+  PKG_CFLAGS=$(pkg-config --cflags sherpa-onnx 2>/dev/null || echo "")
+  PKG_LIBS=$(pkg-config --libs sherpa-onnx 2>/dev/null || echo "")
+
+  if [ -z "$PKG_LIBS" ]; then
+    echo "ERROR: pkg-config could not find sherpa-onnx"
+    echo "Please install sherpa-onnx or unset SHERPA_ONNX_USE_SYSTEM"
+    exit 1
+  fi
+
+  echo "Found system sherpa-onnx via pkg-config"
+else
+  # Detect platform
+  OS=$(uname -s)
+  ARCH=$(uname -m)
+
+  case "$OS" in
+    Darwin)
+      PLATFORM="osx-universal2"
+      ARCHIVE="sherpa-onnx-v1.12.17-osx-universal2-shared.tar.bz2"
+      LIB_EXT="dylib"
+      ;;
+    Linux)
+      if [ "$ARCH" = "x86_64" ]; then
+        PLATFORM="linux-x64"
+        ARCHIVE="sherpa-onnx-v1.12.17-linux-x64-shared.tar.bz2"
+        LIB_EXT="so"
+      else
+        echo "ERROR: Unsupported architecture: $ARCH"
+        echo "Set SHERPA_ONNX_USE_SYSTEM=1 to use system sherpa-onnx"
+        exit 1
+      fi
+      ;;
+    *)
+      echo "ERROR: Unsupported OS: $OS"
+      echo "Set SHERPA_ONNX_USE_SYSTEM=1 to use system sherpa-onnx"
+      exit 1
+      ;;
+  esac
+
+  # Download
+  URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.17/$ARCHIVE"
+  echo "Downloading sherpa-onnx binaries from $URL"
+  echo "This may take a few minutes..."
+
+  if command -v curl > /dev/null 2>&1; then
+    curl -L -o "$ARCHIVE" "$URL" --progress-bar
+  elif command -v wget > /dev/null 2>&1; then
+    wget -O "$ARCHIVE" "$URL"
+  else
+    echo "ERROR: Neither curl nor wget found. Please install one of them."
+    exit 1
+  fi
+
+  if [ ! -f "$ARCHIVE" ]; then
+    echo "ERROR: Failed to download $ARCHIVE"
+    exit 1
+  fi
+
+  # Extract
+  echo "Extracting binaries..."
+  tar xjf "$ARCHIVE"
+
+  # Find extracted directory
+  EXTRACTED_DIR=$(tar -tjf "$ARCHIVE" | head -1 | cut -f1 -d"/")
+
+  if [ ! -d "$EXTRACTED_DIR" ]; then
+    echo "ERROR: Failed to find extracted directory"
+    exit 1
+  fi
+
+  # Move to inst/
+  echo "Installing binaries..."
+  mkdir -p inst/include inst/libs
+
+  # Copy headers
+  if [ -d "$EXTRACTED_DIR/include" ]; then
+    cp -r "$EXTRACTED_DIR/include"/* inst/include/
+  fi
+
+  # Copy libraries
+  if [ -d "$EXTRACTED_DIR/lib" ]; then
+    cp -r "$EXTRACTED_DIR/lib"/* inst/libs/
+  fi
+
+  # Cleanup
+  echo "Cleaning up..."
+  rm -rf "$ARCHIVE" "$EXTRACTED_DIR"
+
+  # Set flags for Makevars
+  PKG_CFLAGS="-I../inst/include"
+
+  # Platform-specific library linking
+  if [ "$OS" = "Darwin" ]; then
+    # macOS: use @loader_path for runtime library path
+    PKG_LIBS="-L../inst/libs -lsherpa-onnx-c-api -lonnxruntime -Wl,-rpath,@loader_path/../libs"
+  else
+    # Linux: use $ORIGIN for runtime library path
+    PKG_LIBS="-L../inst/libs -lsherpa-onnx-c-api -lonnxruntime -Wl,-rpath,'\$\$ORIGIN/../libs'"
+  fi
+
+  echo "Binaries installed successfully"
+fi
+
+# Generate src/Makevars from template
+echo "Generating src/Makevars..."
+sed -e "s|@PKG_CFLAGS@|$PKG_CFLAGS|" \
+    -e "s|@PKG_LIBS@|$PKG_LIBS|" \
+    src/Makevars.in > src/Makevars
+
+echo "Configuration complete!"

@@ -1,0 +1,92 @@
+#!/bin/sh
+
+# Configuration script for sherpa.onnx R package on Windows
+# Downloads and extracts sherpa-onnx binaries
+
+echo "Configuring sherpa.onnx R package for Windows..."
+
+# Check for SHERPA_ONNX_USE_SYSTEM flag
+if [ "$SHERPA_ONNX_USE_SYSTEM" = "1" ]; then
+  echo "Using system-installed sherpa-onnx"
+  echo "Note: You must ensure sherpa-onnx libraries are in PATH"
+
+  # For system installation, user must provide paths
+  if [ -z "$SHERPA_ONNX_INCLUDE" ] || [ -z "$SHERPA_ONNX_LIB" ]; then
+    echo "ERROR: When using SHERPA_ONNX_USE_SYSTEM=1, you must set:"
+    echo "  SHERPA_ONNX_INCLUDE - path to include directory"
+    echo "  SHERPA_ONNX_LIB - path to lib directory"
+    exit 1
+  fi
+
+  PKG_CFLAGS="-I${SHERPA_ONNX_INCLUDE}"
+  PKG_LIBS="-L${SHERPA_ONNX_LIB} -lsherpa-onnx-c-api -lsherpa-onnx-core -lkaldi-native-fbank-core -lonnxruntime"
+else
+  # Download Windows binaries
+  ARCHIVE="sherpa-onnx-v1.12.17-win-x64-shared.tar.bz2"
+  URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.17/$ARCHIVE"
+
+  echo "Downloading sherpa-onnx binaries from $URL"
+  echo "This may take a few minutes..."
+
+  # Use curl (available on recent Windows versions)
+  if command -v curl > /dev/null 2>&1; then
+    curl -L -o "$ARCHIVE" "$URL" --progress-bar
+  else
+    echo "ERROR: curl not found. Please install curl or set SHERPA_ONNX_USE_SYSTEM=1"
+    exit 1
+  fi
+
+  if [ ! -f "$ARCHIVE" ]; then
+    echo "ERROR: Failed to download $ARCHIVE"
+    exit 1
+  fi
+
+  # Extract
+  echo "Extracting binaries..."
+  tar xjf "$ARCHIVE"
+
+  # Find extracted directory
+  EXTRACTED_DIR=$(tar -tjf "$ARCHIVE" | head -1 | cut -f1 -d"/")
+
+  if [ ! -d "$EXTRACTED_DIR" ]; then
+    echo "ERROR: Failed to find extracted directory"
+    exit 1
+  fi
+
+  # Move to inst/
+  echo "Installing binaries..."
+  mkdir -p inst/include inst/libs
+
+  # Copy headers
+  if [ -d "$EXTRACTED_DIR/include" ]; then
+    cp -r "$EXTRACTED_DIR/include"/* inst/include/
+  fi
+
+  # Copy libraries
+  if [ -d "$EXTRACTED_DIR/lib" ]; then
+    cp -r "$EXTRACTED_DIR/lib"/* inst/libs/
+  fi
+
+  # Copy DLLs (Windows needs them in the same directory as the executable)
+  if [ -d "$EXTRACTED_DIR/bin" ]; then
+    cp -r "$EXTRACTED_DIR/bin"/* inst/libs/ 2>/dev/null || true
+  fi
+
+  # Cleanup
+  echo "Cleaning up..."
+  rm -rf "$ARCHIVE" "$EXTRACTED_DIR"
+
+  # Set flags for Makevars.win
+  PKG_CFLAGS="-I../inst/include"
+  PKG_LIBS="-L../inst/libs -lsherpa-onnx-c-api -lonnxruntime"
+
+  echo "Binaries installed successfully"
+fi
+
+# Generate src/Makevars.win from template
+echo "Generating src/Makevars.win..."
+sed -e "s|@PKG_CFLAGS@|$PKG_CFLAGS|" \
+    -e "s|@PKG_LIBS@|$PKG_LIBS|" \
+    src/Makevars.win.in > src/Makevars.win
+
+echo "Configuration complete!"

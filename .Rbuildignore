@@ -1,0 +1,11 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.git$
+^\.github$
+^plans$
+^CLAUDE\.md$
+^LICENSE\.md$
+^README\.Rmd$
+^\.vscode$
+^\.DS_Store$
+^test\.wav$

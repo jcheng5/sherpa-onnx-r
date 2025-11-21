@@ -1,0 +1,53 @@
+# History files
+.Rhistory
+.Rapp.history
+
+# Session Data files
+.RData
+.RDataTmp
+
+# User-specific files
+.Ruserdata
+
+# R Environment Variables
+.Renviron
+
+# RStudio files
+.Rproj.user/
+*.Rproj
+
+# pkgdown site
+docs/
+
+# translation temp files
+po/*~
+
+# OAuth2 token
+.httr-oauth
+
+# knitr and R markdown default cache directories
+*_cache/
+/cache/
+
+# Temporary files
+*.so
+*.o
+*.dll
+*.dylib
+
+# Compiled source
+src/*.o
+src/*.so
+src/*.dll
+src/Makevars
+src/Makevars.win
+
+# Downloaded binaries
+inst/include/
+inst/libs/
+
+# Mac
+.DS_Store
+
+# VS Code
+.vscode/

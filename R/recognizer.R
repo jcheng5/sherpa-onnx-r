@@ -1,0 +1,168 @@
+#' Offline Speech Recognizer
+#'
+#' @description
+#' R6 class for offline speech recognition using sherpa-onnx.
+#' Supports multiple model architectures including Whisper, Paraformer,
+#' SenseVoice, and Transducer models.
+#'
+#' @export
+OfflineRecognizer <- R6::R6Class(
+  "OfflineRecognizer",
+
+  private = list(
+    recognizer_ptr = NULL,
+    model_info_cache = NULL,
+
+    # Cleanup resources (called automatically on garbage collection)
+    finalize = function() {
+      if (!is.null(private$recognizer_ptr)) {
+        # The external pointer has a finalizer that will call
+        # SherpaOnnxDestroyOfflineRecognizer automatically
+        private$recognizer_ptr <- NULL
+      }
+    }
+  ),
+
+  public = list(
+    #' @description
+    #' Create a new offline recognizer
+    #'
+    #' @param model Model specification. Can be:
+    #'   - A shorthand string: "parakeet-v3", "whisper-tiny", "whisper-base", "sense-voice"
+    #'   - A HuggingFace repository: "csukuangfj/sherpa-onnx-whisper-tiny.en"
+    #'   - A local directory path containing model files
+    #' @param language Language code for multilingual models (default: "auto").
+    #'   Used for Whisper and SenseVoice models.
+    #' @param num_threads Number of threads for inference (default: 1)
+    #' @param provider Execution provider: "cpu", "cuda", or "coreml" (default: "cpu")
+    #' @param verbose Logical, whether to print status messages (default: TRUE)
+    #'
+    #' @return A new OfflineRecognizer object
+    #'
+    #' @examples
+    #' \dontrun{
+    #' # Create recognizer with shorthand
+    #' rec <- OfflineRecognizer$new(model = "whisper-tiny")
+    #'
+    #' # Create recognizer with HuggingFace repo
+    #' rec <- OfflineRecognizer$new(
+    #'   model = "csukuangfj/sherpa-onnx-whisper-tiny.en"
+    #' )
+    #'
+    #' # Create recognizer with local model
+    #' rec <- OfflineRecognizer$new(model = "/path/to/model")
+    #' }
+    initialize = function(model = "parakeet-v3",
+                         language = "auto",
+                         num_threads = 1,
+                         provider = "cpu",
+                         verbose = TRUE) {
+
+      # Resolve model
+      model_info <- resolve_model(model, verbose = verbose)
+      private$model_info_cache <- model_info
+
+      # Get model configuration
+      config <- get_model_config(model_info)
+
+      # Prepare paths for C++ function
+      encoder_path <- if (!is.null(config$encoder)) config$encoder else ""
+      decoder_path <- if (!is.null(config$decoder)) config$decoder else ""
+      joiner_path <- if (!is.null(config$joiner)) config$joiner else ""
+      model_path <- if (!is.null(config$model)) config$model else ""
+      tokens_path <- config$tokens
+
+      # Create recognizer via C++ wrapper
+      if (verbose) message("Creating recognizer...")
+      private$recognizer_ptr <- create_offline_recognizer_(
+        model_dir = config$model_dir,
+        model_type = config$model_type,
+        encoder_path = encoder_path,
+        decoder_path = decoder_path,
+        joiner_path = joiner_path,
+        model_path = model_path,
+        tokens_path = tokens_path,
+        num_threads = as.integer(num_threads),
+        provider = provider,
+        language = language
+      )
+
+      if (verbose) message("Recognizer created successfully")
+    },
+
+    #' @description
+    #' Transcribe a WAV file
+    #'
+    #' @param wav_path Path to WAV file (must be 16kHz, 16-bit, mono)
+    #'
+    #' @return List with transcription results containing:
+    #'   - text: Transcribed text
+    #'   - tokens: Character vector of tokens
+    #'   - timestamps: Numeric vector of timestamps (if supported by model)
+    #'   - language: Detected language (if supported by model)
+    #'   - emotion: Detected emotion (if supported by model)
+    #'   - json: Full result as JSON string
+    #'
+    #' @examples
+    #' \dontrun{
+    #' rec <- OfflineRecognizer$new(model = "whisper-tiny")
+    #' result <- rec$transcribe("audio.wav")
+    #' cat("Transcription:", result$text, "\n")
+    #' }
+    transcribe = function(wav_path) {
+      if (!file.exists(wav_path)) {
+        stop("WAV file not found: ", wav_path)
+      }
+
+      if (is.null(private$recognizer_ptr)) {
+        stop("Recognizer not initialized")
+      }
+
+      transcribe_wav_(private$recognizer_ptr, wav_path)
+    },
+
+    #' @description
+    #' Transcribe multiple WAV files in batch
+    #'
+    #' @param wav_paths Character vector of WAV file paths
+    #'
+    #' @return List of transcription results, one for each input file
+    #'
+    #' @examples
+    #' \dontrun{
+    #' rec <- OfflineRecognizer$new(model = "whisper-tiny")
+    #' results <- rec$transcribe_batch(c("file1.wav", "file2.wav"))
+    #' for (i in seq_along(results)) {
+    #'   cat("File", i, ":", results[[i]]$text, "\n")
+    #' }
+    #' }
+    transcribe_batch = function(wav_paths) {
+      if (length(wav_paths) == 0) {
+        return(list())
+      }
+
+      lapply(wav_paths, function(path) {
+        self$transcribe(path)
+      })
+    },
+
+    #' @description
+    #' Get model information
+    #'
+    #' @return List with model metadata including:
+    #'   - type: "local" or "huggingface"
+    #'   - path: Local path to model files
+    #'   - model_type: Type of model (whisper, paraformer, sense-voice, transducer)
+    #'   - repo: HuggingFace repository (if applicable)
+    #'
+    #' @examples
+    #' \dontrun{
+    #' rec <- OfflineRecognizer$new(model = "whisper-tiny")
+    #' info <- rec$model_info()
+    #' print(info)
+    #' }
+    model_info = function() {
+      private$model_info_cache
+    }
+  )
+)

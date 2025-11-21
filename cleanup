@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Cleanup script for sherpa.onnx R package
+# Removes generated files
+
+echo "Cleaning up generated files..."
+
+# Remove generated Makevars
+rm -f src/Makevars src/Makevars.win
+
+# Remove compiled objects
+rm -f src/*.o src/*.so src/*.dll
+
+# Remove downloaded binaries (optional - uncomment if needed during development)
+# rm -rf inst/include inst/libs
+
+echo "Cleanup complete"
