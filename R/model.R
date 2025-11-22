@@ -1,3 +1,6 @@
+#' @useDynLib sherpa.onnx, .registration = TRUE
+NULL
+
 # Model management functions for sherpa.onnx R package
 # Handles model resolution, downloading, and type detection
 
@@ -31,7 +34,7 @@ SHORTHAND_MODELS <- list(
 #' @param model Model specification (shorthand, HF repo, or local path)
 #' @param verbose Logical, whether to print messages
 #' @return List with type, path, and model_type
-#' @keywords internal
+#' @noRd
 resolve_model <- function(model = "parakeet-v3", verbose = TRUE) {
   # 1. Check if it's a local path
   if (dir.exists(model)) {
@@ -74,7 +77,7 @@ resolve_model <- function(model = "parakeet-v3", verbose = TRUE) {
 #' @param repo HuggingFace repository (e.g., "csukuangfj/sherpa-onnx-whisper-tiny.en")
 #' @param verbose Logical, whether to print messages
 #' @return Local path to downloaded model
-#' @keywords internal
+#' @noRd
 download_hf_model <- function(repo, verbose = TRUE) {
   # First, try to use cached version
   model_path <- tryCatch({
@@ -114,7 +117,7 @@ download_hf_model <- function(repo, verbose = TRUE) {
 #'
 #' @param model_dir Path to model directory
 #' @return Named list with actual filenames, or NULL for missing files
-#' @keywords internal
+#' @noRd
 guess_model_files <- function(model_dir) {
   files <- list.files(model_dir)
 
@@ -146,7 +149,7 @@ guess_model_files <- function(model_dir) {
 #'
 #' @param model_dir Path to model directory
 #' @return String indicating model type
-#' @keywords internal
+#' @noRd
 detect_model_type <- function(model_dir) {
   model_files <- guess_model_files(model_dir)
 
@@ -183,7 +186,7 @@ detect_model_type <- function(model_dir) {
 #' Get cache directory for models
 #'
 #' @return Path to cache directory
-#' @keywords internal
+#' @noRd
 get_cache_dir <- function() {
   # Check for user-specified cache directory
   cache_env <- Sys.getenv("SHERPA_ONNX_CACHE_DIR")
@@ -206,7 +209,7 @@ get_cache_dir <- function() {
 #'
 #' @param model_info Model info list from resolve_model()
 #' @return List with model configuration parameters
-#' @keywords internal
+#' @noRd
 get_model_config <- function(model_info) {
   model_type <- model_info$model_type
   model_dir <- model_info$path

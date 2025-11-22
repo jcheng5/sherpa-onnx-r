@@ -48,5 +48,5 @@ static const R_CallMethodDef CallEntries[] = {
 extern "C" attribute_visible void R_init_sherpa_onnx(DllInfo* dll){
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
-  R_forceSymbols(dll, FALSE);
+  R_forceSymbols(dll, TRUE);
 }

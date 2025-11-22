@@ -4,7 +4,7 @@
 #'
 #' @param wav_path Path to WAV file
 #' @return List with samples, sample_rate, and num_samples
-#' @keywords internal
+#' @noRd
 #' @export
 read_wav <- function(wav_path) {
   # Expand tilde and other path shortcuts
@@ -21,7 +21,7 @@ read_wav <- function(wav_path) {
 #'
 #' @param path Path to check
 #' @return Logical indicating if path contains model files
-#' @keywords internal
+#' @noRd
 is_valid_model_dir <- function(path) {
   if (!dir.exists(path)) {
     return(FALSE)
@@ -42,7 +42,7 @@ is_valid_model_dir <- function(path) {
 #'
 #' @param bytes Number of bytes
 #' @return Formatted string (e.g., "1.5 MB")
-#' @keywords internal
+#' @noRd
 format_bytes <- function(bytes) {
   if (bytes < 1024) {
     return(sprintf("%d B", bytes))
