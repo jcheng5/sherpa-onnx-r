@@ -4,10 +4,12 @@
 \alias{resolve_model}
 \title{Resolve model specification to local path}
 \usage{
-resolve_model(model = "parakeet-v3")
+resolve_model(model = "parakeet-v3", verbose = TRUE)
 }
 \arguments{
 \item{model}{Model specification (shorthand, HF repo, or local path)}
+
+\item{verbose}{Logical, whether to print messages}
 }
 \value{
 List with type, path, and model_type

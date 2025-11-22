@@ -9,3 +9,10 @@
 ^\.vscode$
 ^\.DS_Store$
 ^test\.wav$
+^\.claude$
+^QUICK_START\.md$
+^notes$
+^test_parakeet_models\.R$
+^test_whisper_models\.R$
+^whisper_model_comparison\.csv$
+^csukuangfj-parakeet-hf-repos\.txt$

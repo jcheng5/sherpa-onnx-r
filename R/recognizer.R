@@ -5,6 +5,7 @@
 #' Supports multiple model architectures including Whisper, Paraformer,
 #' SenseVoice, and Transducer models.
 #'
+#' @importFrom R6 R6Class
 #' @export
 OfflineRecognizer <- R6::R6Class(
   "OfflineRecognizer",

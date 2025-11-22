@@ -15,8 +15,11 @@ SenseVoice, and Transducer models.
 ## ------------------------------------------------
 
 \dontrun{
-# Create recognizer with shorthand
+# Create recognizer with shorthand (auto-detects threads)
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
+
+# Create recognizer with specific thread count
+rec <- OfflineRecognizer$new(model = "whisper-tiny", num_threads = 4)
 
 # Create recognizer with HuggingFace repo
 rec <- OfflineRecognizer$new(
@@ -66,7 +69,6 @@ print(info)
 \item \href{#method-OfflineRecognizer-transcribe}{\code{OfflineRecognizer$transcribe()}}
 \item \href{#method-OfflineRecognizer-transcribe_batch}{\code{OfflineRecognizer$transcribe_batch()}}
 \item \href{#method-OfflineRecognizer-model_info}{\code{OfflineRecognizer$model_info()}}
-\item \href{#method-OfflineRecognizer-finalize}{\code{OfflineRecognizer$finalize()}}
 \item \href{#method-OfflineRecognizer-clone}{\code{OfflineRecognizer$clone()}}
 }
 }
@@ -79,8 +81,9 @@ Create a new offline recognizer
 \if{html}{\out{<div class="r">}}\preformatted{OfflineRecognizer$new(
   model = "parakeet-v3",
   language = "auto",
-  num_threads = 1,
-  provider = "cpu"
+  num_threads = NULL,
+  provider = "cpu",
+  verbose = TRUE
 )}\if{html}{\out{</div>}}
 }
 
@@ -95,9 +98,12 @@ Create a new offline recognizer
 \item{\code{language}}{Language code for multilingual models (default: "auto").
 Used for Whisper and SenseVoice models.}
 
-\item{\code{num_threads}}{Number of threads for inference (default: 1)}
+\item{\code{num_threads}}{Number of threads for inference (default: NULL = auto-detect).
+If NULL, uses parallel::detectCores() with a maximum of 4 threads.}
 
 \item{\code{provider}}{Execution provider: "cpu", "cuda", or "coreml" (default: "cpu")}
+
+\item{\code{verbose}}{Logical, whether to print status messages (default: TRUE)}
 }
 \if{html}{\out{</div>}}
 }
@@ -107,8 +113,11 @@ A new OfflineRecognizer object
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{\dontrun{
-# Create recognizer with shorthand
+# Create recognizer with shorthand (auto-detects threads)
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
+
+# Create recognizer with specific thread count
+rec <- OfflineRecognizer$new(model = "whisper-tiny", num_threads = 4)
 
 # Create recognizer with HuggingFace repo
 rec <- OfflineRecognizer$new(
@@ -222,16 +231,6 @@ print(info)
 }
 \if{html}{\out{</div>}}
 
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-OfflineRecognizer-finalize"></a>}}
-\if{latex}{\out{\hypertarget{method-OfflineRecognizer-finalize}{}}}
-\subsection{Method \code{finalize()}}{
-Cleanup resources (called automatically on garbage collection)
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OfflineRecognizer$finalize()}\if{html}{\out{</div>}}
 }
 
 }

@@ -16,9 +16,10 @@ Depends:
     R (>= 4.0.0)
 Imports:
     R6 (>= 2.5.0),
-    cpp11 (>= 0.4.0),
     rappdirs (>= 0.3.0),
     hfhub (>= 0.1.0)
+LinkingTo:
+    cpp11 (>= 0.4.0)
 Suggests:
     testthat (>= 3.0.0),
     knitr,

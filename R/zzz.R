@@ -1,5 +1,6 @@
 # Package hooks and initialization
 
+#' @useDynLib sherpa.onnx, .registration = TRUE
 .onLoad <- function(libname, pkgname) {
   # Nothing needed here for now
   # The C++ library is loaded automatically via useDynLib in NAMESPACE

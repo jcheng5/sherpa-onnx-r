@@ -4,10 +4,12 @@
 \alias{download_hf_model}
 \title{Download model from HuggingFace Hub}
 \usage{
-download_hf_model(repo)
+download_hf_model(repo, verbose = TRUE)
 }
 \arguments{
 \item{repo}{HuggingFace repository (e.g., "csukuangfj/sherpa-onnx-whisper-tiny.en")}
+
+\item{verbose}{Logical, whether to print messages}
 }
 \value{
 Local path to downloaded model

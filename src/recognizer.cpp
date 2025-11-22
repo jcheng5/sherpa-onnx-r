@@ -10,6 +10,11 @@
 
 using namespace cpp11;
 
+// Deleter function for the recognizer pointer
+static void delete_recognizer(const SherpaOnnxOfflineRecognizer *ptr) {
+  SherpaOnnxDestroyOfflineRecognizer(ptr);
+}
+
 // Helper function to create a default config
 static SherpaOnnxOfflineRecognizerConfig get_default_config() {
   SherpaOnnxOfflineRecognizerConfig config;
@@ -87,11 +92,7 @@ SEXP create_offline_recognizer_(
   external_pointer<const SherpaOnnxOfflineRecognizer> ptr(
       recognizer,
       true,
-      [](const SherpaOnnxOfflineRecognizer *ptr) {
-        if (ptr != nullptr) {
-          SherpaOnnxDestroyOfflineRecognizer(ptr);
-        }
-      });
+      delete_recognizer);
 
   return ptr;
 }
