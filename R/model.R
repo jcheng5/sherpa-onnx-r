@@ -103,70 +103,43 @@ download_hf_model <- function(repo, verbose = TRUE) {
     if (verbose) message("Model downloaded and cached")
   }
 
-  # Create symlinks for standard file names if needed
-  # sherpa-onnx models may use custom names like tiny.en-encoder.onnx
-  # We need to create symlinks to encoder.onnx, decoder.onnx, tokens.txt
-  create_standard_symlinks(model_path)
-
   return(model_path)
 }
 
-#' Create standard symlinks for model files
+#' Guess model filenames from directory
+#'
+#' Takes a model directory and returns a named list mapping standard names
+#' (encoder, decoder, joiner, tokens, model) to actual filenames found.
+#' Handles custom naming like "tiny.en-encoder.onnx" or "encoder.int8.onnx".
 #'
 #' @param model_dir Path to model directory
+#' @return Named list with actual filenames, or NULL for missing files
 #' @keywords internal
-create_standard_symlinks <- function(model_dir) {
+guess_model_files <- function(model_dir) {
   files <- list.files(model_dir)
 
-  # Helper to find best candidate (prefer non-int8, then any)
-  find_best_candidate <- function(pattern) {
+  # Helper to find best candidate for a given pattern
+  # Prefer non-int8 versions if available
+  find_best_file <- function(pattern) {
     candidates <- grep(pattern, files, value = TRUE)
     if (length(candidates) == 0) return(NULL)
 
-    # Prefer non-int8 versions if available
+    # Prefer non-int8 versions
     non_int8 <- candidates[!grepl("int8", candidates)]
     if (length(non_int8) > 0) {
       return(non_int8[1])
     }
 
-    # Otherwise use int8 version
     return(candidates[1])
   }
 
-  # Create encoder.onnx symlink if it doesn't exist
-  if (!"encoder.onnx" %in% files) {
-    candidate <- find_best_candidate("encoder\\.onnx$")
-    if (!is.null(candidate)) {
-      file.symlink(basename(candidate), file.path(model_dir, "encoder.onnx"))
-    }
-  }
-
-  # Create decoder.onnx symlink if it doesn't exist
-  if (!"decoder.onnx" %in% files) {
-    candidate <- find_best_candidate("decoder\\.onnx$")
-    if (!is.null(candidate)) {
-      file.symlink(basename(candidate), file.path(model_dir, "decoder.onnx"))
-    }
-  }
-
-  # Create joiner.onnx symlink if it doesn't exist (for transducer models)
-  if (!"joiner.onnx" %in% files) {
-    candidate <- find_best_candidate("joiner\\.onnx$")
-    if (!is.null(candidate)) {
-      file.symlink(basename(candidate), file.path(model_dir, "joiner.onnx"))
-    }
-  }
-
-  # Create tokens.txt symlink if it doesn't exist
-  if (!"tokens.txt" %in% files) {
-    tokens_candidates <- grep("-tokens\\.txt$", files, value = TRUE)
-    if (length(tokens_candidates) > 0) {
-      file.symlink(
-        basename(tokens_candidates[1]),
-        file.path(model_dir, "tokens.txt")
-      )
-    }
-  }
+  list(
+    encoder = find_best_file("encoder.*\\.onnx$"),
+    decoder = find_best_file("decoder.*\\.onnx$"),
+    joiner = find_best_file("joiner.*\\.onnx$"),
+    tokens = find_best_file("tokens\\.txt$"),
+    model = find_best_file("^model.*\\.onnx$")
+  )
 }
 
 #' Detect model type from files in directory
@@ -175,37 +148,32 @@ create_standard_symlinks <- function(model_dir) {
 #' @return String indicating model type
 #' @keywords internal
 detect_model_type <- function(model_dir) {
-  files <- list.files(model_dir)
-
-  # Helper to check if file exists (including .int8 versions)
-  has_file <- function(name) {
-    name %in% files || any(grepl(paste0("^", name, "$"), files)) ||
-      any(grepl(paste0(gsub("\\.onnx$", "\\.int8\\.onnx$", name)), files))
-  }
+  model_files <- guess_model_files(model_dir)
 
   # Check for transducer (encoder + decoder + joiner)
-  if (has_file("encoder.onnx") &&
-      has_file("decoder.onnx") &&
-      has_file("joiner.onnx")) {
+  if (!is.null(model_files$encoder) &&
+      !is.null(model_files$decoder) &&
+      !is.null(model_files$joiner)) {
     return("transducer")
   }
 
   # Check for whisper (encoder + decoder, no joiner)
-  if (has_file("encoder.onnx") && has_file("decoder.onnx")) {
+  if (!is.null(model_files$encoder) && !is.null(model_files$decoder)) {
     return("whisper")
   }
 
   # Check for paraformer or sense-voice (single model.onnx)
-  if (any(grepl("^model.*\\.onnx$", files))) {
+  if (!is.null(model_files$model)) {
     # Check for sense-voice indicators
     if (any(grepl("sense-?voice", model_dir, ignore.case = TRUE)) ||
-        any(grepl("sense-?voice", files, ignore.case = TRUE))) {
+        any(grepl("sense-?voice", model_files$model, ignore.case = TRUE))) {
       return("sense-voice")
     } else {
       return("paraformer")
     }
   }
 
+  files <- list.files(model_dir)
   stop(
     "Could not detect model type from files in: ", model_dir,
     "\nFiles found: ", paste(files, collapse = ", ")
@@ -248,49 +216,22 @@ get_model_config <- function(model_info) {
     model_type = model_type
   )
 
-  # Helper to find best file (prefer standard name, then int8, then any match)
-  find_model_file <- function(base_name) {
-    files <- list.files(model_dir)
+  # Get guessed filenames from directory
+  model_files <- guess_model_files(model_dir)
 
-    # Try standard name first
-    if (base_name %in% files) {
-      return(file.path(model_dir, base_name))
-    }
-
-    # Try int8 version
-    int8_name <- gsub("\\.onnx$", ".int8.onnx", base_name)
-    if (int8_name %in% files) {
-      return(file.path(model_dir, int8_name))
-    }
-
-    # Try pattern match
-    pattern <- gsub("\\.onnx$", ".*\\.onnx$", base_name)
-    matches <- grep(pattern, files, value = TRUE)
-    if (length(matches) > 0) {
-      # Prefer non-int8 if multiple matches
-      non_int8 <- matches[!grepl("int8", matches)]
-      if (length(non_int8) > 0) {
-        return(file.path(model_dir, non_int8[1]))
-      }
-      return(file.path(model_dir, matches[1]))
-    }
-
-    return(NULL)
-  }
-
-  # Model-specific file paths
+  # Model-specific file paths (use full paths)
   if (model_type == "whisper") {
-    config$encoder <- find_model_file("encoder.onnx")
-    config$decoder <- find_model_file("decoder.onnx")
-    config$tokens <- find_model_file("tokens.txt")
+    config$encoder <- if (!is.null(model_files$encoder)) file.path(model_dir, model_files$encoder)
+    config$decoder <- if (!is.null(model_files$decoder)) file.path(model_dir, model_files$decoder)
+    config$tokens <- if (!is.null(model_files$tokens)) file.path(model_dir, model_files$tokens)
   } else if (model_type == "transducer") {
-    config$encoder <- find_model_file("encoder.onnx")
-    config$decoder <- find_model_file("decoder.onnx")
-    config$joiner <- find_model_file("joiner.onnx")
-    config$tokens <- find_model_file("tokens.txt")
+    config$encoder <- if (!is.null(model_files$encoder)) file.path(model_dir, model_files$encoder)
+    config$decoder <- if (!is.null(model_files$decoder)) file.path(model_dir, model_files$decoder)
+    config$joiner <- if (!is.null(model_files$joiner)) file.path(model_dir, model_files$joiner)
+    config$tokens <- if (!is.null(model_files$tokens)) file.path(model_dir, model_files$tokens)
   } else if (model_type %in% c("paraformer", "sense-voice")) {
-    config$model <- find_model_file("model.onnx")
-    config$tokens <- find_model_file("tokens.txt")
+    config$model <- if (!is.null(model_files$model)) file.path(model_dir, model_files$model)
+    config$tokens <- if (!is.null(model_files$tokens)) file.path(model_dir, model_files$tokens)
   }
 
   return(config)

@@ -55,21 +55,22 @@ else
 
   # Move to inst/
   echo "Installing binaries..."
-  mkdir -p inst/include inst/libs
+  mkdir -p inst/include inst/libs/x64
 
   # Copy headers
   if [ -d "$EXTRACTED_DIR/include" ]; then
     cp -r "$EXTRACTED_DIR/include"/* inst/include/
   fi
 
-  # Copy libraries
+  # Copy libraries (.lib files for linking)
   if [ -d "$EXTRACTED_DIR/lib" ]; then
-    cp -r "$EXTRACTED_DIR/lib"/* inst/libs/
+    cp -r "$EXTRACTED_DIR/lib"/* inst/libs/x64/
   fi
 
   # Copy DLLs (Windows needs them in the same directory as the executable)
+  # Place DLLs in x64 subdirectory where R will install the compiled package DLL
   if [ -d "$EXTRACTED_DIR/bin" ]; then
-    cp -r "$EXTRACTED_DIR/bin"/* inst/libs/ 2>/dev/null || true
+    cp -r "$EXTRACTED_DIR/bin"/* inst/libs/x64/ 2>/dev/null || true
   fi
 
   # Cleanup
@@ -78,7 +79,7 @@ else
 
   # Set flags for Makevars.win
   PKG_CFLAGS="-I../inst/include"
-  PKG_LIBS="-L../inst/libs -lsherpa-onnx-c-api -lonnxruntime"
+  PKG_LIBS="-L../inst/libs/x64 -lsherpa-onnx-c-api -lonnxruntime"
 
   echo "Binaries installed successfully"
 fi
