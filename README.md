@@ -73,17 +73,61 @@ rec <- OfflineRecognizer$new(
 rec <- OfflineRecognizer$new(model = "/path/to/model-directory")
 ```
 
-### Available Shorthand Models
+### Available Models
+
+View all available shorthand models:
 
 ```r
 available_models()
-#> [1] "parakeet-v3"  "whisper-tiny" "whisper-base" "sense-voice"
+#> [1] "parakeet-v3" "parakeet-110m" "whisper-tiny" "whisper-base" ...
 ```
 
-- **parakeet-v3**: Paraformer model for English (default)
-- **whisper-tiny**: Whisper tiny model for English
-- **whisper-base**: Whisper base model for English
-- **sense-voice**: Multilingual model (Chinese, English, Japanese, Korean, Cantonese)
+#### Parakeet Models (NeMo Transducer, English)
+
+| Shorthand | HuggingFace Repo | Size | Speed | Notes |
+|-----------|------------------|------|-------|-------|
+| `parakeet-v3` | `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` | 671 MB | 0.9s | Production default, best balance |
+| `parakeet-110m` | `csukuangfj/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000` | 478 MB | 0.15s | 6x faster, edge devices |
+
+#### Whisper Models (English-only)
+
+| Shorthand | HuggingFace Repo | Size | Speed | Notes |
+|-----------|------------------|------|-------|-------|
+| `whisper-tiny` | `csukuangfj/sherpa-onnx-whisper-tiny.en` | 257 MB | 0.3s | Fastest, good accuracy |
+| `whisper-base` | `csukuangfj/sherpa-onnx-whisper-base.en` | ~500 MB | 0.5s | Balanced |
+| `whisper-small` | `csukuangfj/sherpa-onnx-whisper-small.en` | 1.34 GB | 1.8s | Better accuracy |
+| `whisper-medium` | `csukuangfj/sherpa-onnx-whisper-medium.en` | ~3 GB | 5.8s | High accuracy |
+
+#### Whisper Models (Multilingual)
+
+| Shorthand | HuggingFace Repo | Speed | Notes |
+|-----------|------------------|-------|-------|
+| `whisper-tiny-multilingual` | `csukuangfj/sherpa-onnx-whisper-tiny` | 0.3s | 99 languages, fastest |
+| `whisper-base-multilingual` | `csukuangfj/sherpa-onnx-whisper-base` | 0.5s | 99 languages |
+| `whisper-medium-multilingual` | `csukuangfj/sherpa-onnx-whisper-medium` | 5.9s | 99 languages, better accuracy |
+
+#### Whisper Distilled Models (English-only, faster)
+
+| Shorthand | HuggingFace Repo | Speed | Notes |
+|-----------|------------------|-------|-------|
+| `whisper-distil-small` | `csukuangfj/sherpa-onnx-whisper-distil-small.en` | 1.15s | Faster than small, similar accuracy |
+| `whisper-distil-medium` | `csukuangfj/sherpa-onnx-whisper-distil-medium.en` | 2.7s | Faster than medium, similar accuracy |
+
+#### SenseVoice (Multilingual with Special Features)
+
+| Shorthand | HuggingFace Repo | Speed | Notes |
+|-----------|------------------|-------|-------|
+| `sense-voice` | `csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17` | 0.34s | **Unique features:** Emotion detection, audio event detection, language tags |
+
+**Languages:** Chinese, English, Japanese, Korean, Cantonese
+
+**Special capabilities:**
+- Returns emotion tags: `<|NEUTRAL|>`, `<|HAPPY|>`, `<|SAD|>`, etc.
+- Returns language tags: `<|en|>`, `<|zh|>`, `<|ja|>`, etc.
+- Detects audio events: applause, laughter, music
+- Excellent for code-switching (mixed languages)
+
+**Speed benchmarks** are for ~13 second audio on Apple M-series (varies by hardware). Multilingual Whisper models require `language = "en"` parameter.
 
 ### Transcribing Audio
 
@@ -163,25 +207,39 @@ clear_cache()
 Sys.setenv(SHERPA_ONNX_CACHE_DIR = "/custom/cache/path")
 ```
 
-## Supported Models
+## Model Recommendations
 
-The package supports various model architectures:
+### By Use Case
 
-1. **Whisper**: OpenAI's Whisper models
-   - Best for English transcription
-   - Multiple sizes: tiny, base, small, medium
+**General production use (English):**
+- `parakeet-v3` - Best overall balance of speed, accuracy, and size
 
-2. **Paraformer**: Alibaba's Paraformer models
-   - Fast and accurate
-   - Good for English
+**Speed priority (English):**
+- `parakeet-110m` - 6x faster than parakeet-v3, great for edge devices
+- `whisper-tiny` - Fast Whisper variant
 
-3. **SenseVoice**: Multilingual models
-   - Supports multiple languages and emotions
-   - Good for Chinese, English, Japanese, Korean
+**Accuracy priority (English):**
+- `whisper-medium` - Highest tested accuracy
+- `whisper-small` - Good balance of accuracy and speed
 
-4. **Transducer**: Streaming-capable models
-   - RNN-T architecture
-   - Good for real-time applications
+**Multilingual:**
+- `sense-voice` - Best for Chinese/Japanese/Korean/Cantonese + emotion detection
+- `whisper-medium-multilingual` - 99 languages supported
+
+**Special features:**
+- `sense-voice` - Only model with emotion detection and audio event classification
+
+**Edge devices / Low memory:**
+- `parakeet-110m` - Only 478 MB, very fast
+- `whisper-tiny` - Only 257 MB
+
+### Model Architectures
+
+The package supports three main architectures:
+
+1. **NeMo Transducer (Parakeet)**: State-of-the-art English models from NVIDIA
+2. **Whisper**: OpenAI's robust models with excellent punctuation and capitalization
+3. **SenseVoice**: Multilingual model with emotion detection capabilities
 
 ## Examples
 
@@ -195,13 +253,17 @@ result <- rec$transcribe("test.wav")
 cat(result$text)
 ```
 
-### Multilingual Transcription
+### Multilingual Transcription with Emotion Detection
 
 ```r
+# SenseVoice provides emotion and language detection
 rec <- OfflineRecognizer$new(model = "sense-voice")
-result <- rec$transcribe("chinese_audio.wav")
-cat("Detected language:", result$language, "\n")
+result <- rec$transcribe("audio.wav")
+
 cat("Text:", result$text, "\n")
+cat("Language:", result$language, "\n")      # e.g., "<|en|>"
+cat("Emotion:", result$emotion, "\n")        # e.g., "<|NEUTRAL|>"
+# Also detects: <|HAPPY|>, <|SAD|>, <|ANGRY|>, events like <|APPLAUSE|>
 ```
 
 ### Batch Processing

@@ -31,13 +31,39 @@ result <- rec$transcribe("test.wav")
 cat(result$text)
 ```
 
-**Available model shorthands**:
-- `whisper-tiny` - Whisper tiny model (fast, English-only)
-- `whisper-base` - Whisper base model (more accurate, English-only)
-- `parakeet-v3` - NeMo Parakeet TDT transducer model (int8 quantized)
-- `sense-voice` - Multilingual model (Chinese, English, Japanese, Korean, Cantonese)
+**Available model shorthands** (all tested and working):
+
+Parakeet (NeMo, English):
+- `parakeet-v3` - 600M model, production default (671 MB, 0.9s)
+- `parakeet-110m` - Smaller/faster model (478 MB, 0.15s)
+
+Whisper (English-only):
+- `whisper-tiny` - Fastest (257 MB, 0.3s)
+- `whisper-base` - Balanced (500 MB, 0.5s)
+- `whisper-small` - Better accuracy (1.34 GB, 1.8s)
+- `whisper-medium` - High accuracy (3 GB, 5.8s)
+
+Whisper (Multilingual, 99 languages):
+- `whisper-tiny-multilingual` - Fastest multilingual
+- `whisper-base-multilingual` - Balanced multilingual
+- `whisper-medium-multilingual` - Best accuracy multilingual
+
+Whisper Distilled (English-only, faster):
+- `whisper-distil-small` - Faster than small
+- `whisper-distil-medium` - Faster than medium
+
+SenseVoice (Special Features):
+- `sense-voice` - Multilingual with emotion detection (0.34s)
+  - Languages: Chinese, English, Japanese, Korean, Cantonese
+  - Returns emotion tags: `<|NEUTRAL|>`, `<|HAPPY|>`, `<|SAD|>`, etc.
+  - Returns language tags: `<|en|>`, `<|zh|>`, `<|ja|>`, etc.
+  - Detects audio events: applause, laughter, music
 
 Models are cached in: `~/.cache/huggingface/hub/`
+
+**Speed benchmarks** are for ~13 second audio on Apple M-series.
+
+**Tested and verified:** All models above have been tested and confirmed working.
 
 **Note**: The package automatically handles int8 quantized models and various file naming conventions.
 

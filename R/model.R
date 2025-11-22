@@ -3,9 +3,26 @@
 
 # Shorthand model mappings
 SHORTHAND_MODELS <- list(
+  # Parakeet models (NeMo transducer, English)
   "parakeet-v3" = "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+  "parakeet-110m" = "csukuangfj/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000",
+
+  # Whisper models (English-only)
   "whisper-tiny" = "csukuangfj/sherpa-onnx-whisper-tiny.en",
   "whisper-base" = "csukuangfj/sherpa-onnx-whisper-base.en",
+  "whisper-small" = "csukuangfj/sherpa-onnx-whisper-small.en",
+  "whisper-medium" = "csukuangfj/sherpa-onnx-whisper-medium.en",
+
+  # Whisper models (Multilingual)
+  "whisper-tiny-multilingual" = "csukuangfj/sherpa-onnx-whisper-tiny",
+  "whisper-base-multilingual" = "csukuangfj/sherpa-onnx-whisper-base",
+  "whisper-medium-multilingual" = "csukuangfj/sherpa-onnx-whisper-medium",
+
+  # Whisper distilled models (English-only, faster)
+  "whisper-distil-small" = "csukuangfj/sherpa-onnx-whisper-distil-small.en",
+  "whisper-distil-medium" = "csukuangfj/sherpa-onnx-whisper-distil-medium.en",
+
+  # SenseVoice (Multilingual: Chinese, English, Japanese, Korean, Cantonese)
   "sense-voice" = "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"
 )
 

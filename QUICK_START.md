@@ -18,8 +18,11 @@ library(sherpa.onnx)
 # Create recognizer (downloads model automatically)
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
 
+# Get path to built-in test audio (or use your own WAV file)
+audio_file <- system.file("extdata", "test.wav", package = "sherpa.onnx")
+
 # Transcribe audio
-result <- rec$transcribe("test.wav")
+result <- rec$transcribe(audio_file)
 cat(result$text)
 ```
 
