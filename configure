@@ -116,11 +116,26 @@ else
 
   # Platform-specific library linking
   if [ "$OS" = "Darwin" ]; then
-    # macOS: use @loader_path for runtime library path
+    # macOS: use @loader_path for runtime library path (installed package)
     PKG_LIBS="-L../inst/libs -lsherpa-onnx-c-api -lonnxruntime -Wl,-rpath,@loader_path/../libs"
+
+    # For development: add absolute path for devtools::load_all() support
+    # Check for .Rbuildignore to detect if we're in source tree (not a built tarball)
+    if [ -f "$(dirname "$0")/.Rbuildignore" ]; then
+      ABS_LIBS_PATH="$(cd "$(dirname "$0")/inst/libs" && pwd)"
+      PKG_LIBS="${PKG_LIBS} -Wl,-rpath,${ABS_LIBS_PATH}"
+      echo "Development mode: Adding absolute rpath for devtools support"
+    fi
   else
-    # Linux: use $ORIGIN for runtime library path
+    # Linux: use $ORIGIN for runtime library path (installed package)
     PKG_LIBS="-L../inst/libs -lsherpa-onnx-c-api -lonnxruntime -Wl,-rpath,'\$\$ORIGIN/../libs'"
+
+    # For development: add absolute path for devtools::load_all() support
+    if [ -f "$(dirname "$0")/.Rbuildignore" ]; then
+      ABS_LIBS_PATH="$(cd "$(dirname "$0")/inst/libs" && pwd)"
+      PKG_LIBS="${PKG_LIBS} -Wl,-rpath,${ABS_LIBS_PATH}"
+      echo "Development mode: Adding absolute rpath for devtools support"
+    fi
   fi
 
   echo "Binaries installed successfully"

@@ -5,7 +5,6 @@
 #' @param wav_path Path to WAV file
 #' @return List with samples, sample_rate, and num_samples
 #' @noRd
-#' @export
 read_wav <- function(wav_path) {
   # Expand tilde and other path shortcuts
   wav_path <- path.expand(wav_path)

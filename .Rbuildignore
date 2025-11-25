@@ -17,3 +17,7 @@
 ^whisper_model_comparison\.csv$
 ^csukuangfj-parakeet-hf-repos\.txt$
 ^_dev$
+^inst/libs$
+^src/.*\.o$
+^src/.*\.so$
+^src/Makevars$
