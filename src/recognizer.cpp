@@ -7,12 +7,43 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <fstream>
 
 using namespace cpp11;
 
 // Deleter function for the recognizer pointer
 static void delete_recognizer(const SherpaOnnxOfflineRecognizer *ptr) {
   SherpaOnnxDestroyOfflineRecognizer(ptr);
+}
+
+// Validate that a file is a valid WAV file
+// Returns true if valid, false otherwise
+static bool is_valid_wav(const std::string &filename) {
+  std::ifstream file(filename, std::ios::binary);
+  if (!file.is_open()) {
+    return false;
+  }
+
+  // Read RIFF header (first 12 bytes)
+  char header[12];
+  file.read(header, 12);
+  if (!file) {
+    return false;
+  }
+
+  // Check for "RIFF" magic bytes (0x52494646)
+  if (header[0] != 'R' || header[1] != 'I' ||
+      header[2] != 'F' || header[3] != 'F') {
+    return false;
+  }
+
+  // Check for "WAVE" format (0x57415645)
+  if (header[8] != 'W' || header[9] != 'A' ||
+      header[10] != 'V' || header[11] != 'E') {
+    return false;
+  }
+
+  return true;
 }
 
 // Helper function to create a default config
@@ -106,6 +137,11 @@ list transcribe_wav_(SEXP recognizer_xptr, std::string wav_path) {
 
   if (recognizer.get() == nullptr) {
     stop("Invalid recognizer pointer");
+  }
+
+  // Validate WAV file format before processing
+  if (!is_valid_wav(wav_path)) {
+    stop("Invalid WAV file: %s\nOnly standard WAV files (16-bit PCM, mono/stereo) are supported.\nFile must have RIFF/WAVE headers.", wav_path.c_str());
   }
 
   // Read WAV file
@@ -208,6 +244,11 @@ void destroy_recognizer_(SEXP recognizer_xptr) {
 // Read a WAV file and return its properties
 [[cpp11::register]]
 list read_wav_(std::string wav_path) {
+  // Validate WAV file format before processing
+  if (!is_valid_wav(wav_path)) {
+    stop("Invalid WAV file: %s\nOnly standard WAV files (16-bit PCM, mono/stereo) are supported.\nFile must have RIFF/WAVE headers.", wav_path.c_str());
+  }
+
   const SherpaOnnxWave *wave = SherpaOnnxReadWave(wav_path.c_str());
 
   if (wave == nullptr) {
