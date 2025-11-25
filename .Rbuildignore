@@ -16,3 +16,4 @@
 ^test_whisper_models\.R$
 ^whisper_model_comparison\.csv$
 ^csukuangfj-parakeet-hf-repos\.txt$
+^_dev$

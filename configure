@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Configuration script for sherpa.onnx R package
 # Downloads and extracts sherpa-onnx binaries for the current platform
