@@ -9,7 +9,7 @@ Description: Provides offline speech recognition (audio file to text transcripti
     using the sherpa-onnx library. Features automatic model downloads from HuggingFace
     Hub, support for multiple model architectures (Whisper, Paraformer, SenseVoice),
     and efficient batch processing through an R6 class interface.
-License: MIT + file LICENSE
+License: Apache License (>= 2.0)
 Encoding: UTF-8
 LazyData: true
 Depends:
