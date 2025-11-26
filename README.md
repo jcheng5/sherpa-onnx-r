@@ -11,30 +11,24 @@ An R package that provides offline speech recognition (audio file to text transc
 - **Automatic model management**: Downloads models from HuggingFace Hub
 - **Simple API**: R6 class interface with sensible defaults
 - **Batch processing**: Transcribe multiple files efficiently
-- **Cross-platform**: Works on macOS, Linux, and Windows
+- **Cross-platform**: Works on macOS, Linux (x64 only), and Windows (x64 only)
 
 ## Installation
 
-### From source
-
 ```r
-# Install dependencies
-install.packages(c("R6", "cpp11", "rappdirs", "hfhub"))
-
-# Install sherpa.onnx
-# The configure script will automatically download pre-built binaries
-install.packages("sherpa.onnx", type = "source")
+pak::pak("jcheng5/sherpa-onnx-r")
 ```
 
-**Note**: The package downloads architecture-specific binaries (31-34 MB) during installation. On macOS, separate binaries are provided for Apple Silicon (arm64) and Intel (x86_64) processors.
+**Note**: The package downloads OS- and architecture-specific binaries (31-34 MB) during installation.
 
 ### Using system sherpa-onnx
 
-If you have sherpa-onnx installed on your system, you can use it instead:
+If you have sherpa-onnx installed on your system, you can try forcing sherpa.onnx to use it (this has not been well tested):
 
-```bash
-export SHERPA_ONNX_USE_SYSTEM=1
-R CMD INSTALL sherpa.onnx
+```r
+withr::with_envvar(list(SHERPA_ONNX_USE_SYSTEM="1"),
+  remotes::install_github("jcheng5/sherpa-onnx-r")
+)
 ```
 
 ## Quick Start
@@ -355,5 +349,4 @@ sherpa-onnx: https://github.com/k2-fsa/sherpa-onnx
 ## Related Projects
 
 - [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) - The underlying C++ library
-- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) - Alternative Whisper implementation
-- [vosk](https://alphacephei.com/vosk/) - Another offline speech recognition toolkit
+- [audio.whisper](https://github.com/bnosac/audio.whisper) - R wrapper around [whisper.cpp](https://github.com/ggerganov/whisper.cpp)
