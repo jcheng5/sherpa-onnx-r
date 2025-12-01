@@ -201,6 +201,17 @@ list transcribe_wav_(SEXP recognizer_xptr, std::string wav_path) {
     out.push_back({"timestamps"_nm = R_NilValue});
   }
 
+  // Durations
+  if (result->durations != nullptr && result->count > 0) {
+    writable::doubles durations_vec;
+    for (int32_t i = 0; i < result->count; ++i) {
+      durations_vec.push_back(result->durations[i]);
+    }
+    out.push_back({"durations"_nm = durations_vec});
+  } else {
+    out.push_back({"durations"_nm = R_NilValue});
+  }
+
   // Language
   if (result->lang != nullptr && strlen(result->lang) > 0) {
     out.push_back({"language"_nm = std::string(result->lang)});
@@ -213,6 +224,13 @@ list transcribe_wav_(SEXP recognizer_xptr, std::string wav_path) {
     out.push_back({"emotion"_nm = std::string(result->emotion)});
   } else {
     out.push_back({"emotion"_nm = R_NilValue});
+  }
+
+  // Event
+  if (result->event != nullptr && strlen(result->event) > 0) {
+    out.push_back({"event"_nm = std::string(result->event)});
+  } else {
+    out.push_back({"event"_nm = R_NilValue});
   }
 
   // JSON

@@ -49,9 +49,41 @@ test_that("OfflineRecognizer transcribe_batch works", {
   rec <- OfflineRecognizer$new(model = "test-model")
   results <- rec$transcribe_batch(c("test-audio.wav", "test-audio.wav"))
 
-  expect_type(results, "list")
-  expect_equal(length(results), 2)
-  expect_true("text" %in% names(results[[1]]))
+  # Should return a tibble
+  expect_s3_class(results, "tbl_df")
+  expect_equal(nrow(results), 2)
+
+  # Check column names
+  expect_true("file" %in% names(results))
+  expect_true("text" %in% names(results))
+  expect_true("tokens" %in% names(results))
+  expect_true("timestamps" %in% names(results))
+  expect_true("durations" %in% names(results))
+  expect_true("language" %in% names(results))
+  expect_true("emotion" %in% names(results))
+  expect_true("event" %in% names(results))
+  expect_true("json" %in% names(results))
+
+  # Check column types
+  expect_type(results$file, "character")
+  expect_type(results$text, "character")
+  expect_type(results$tokens, "list")
+  expect_type(results$timestamps, "list")
+  expect_type(results$durations, "list")
+})
+
+test_that("OfflineRecognizer transcribe_batch returns empty tibble for empty input", {
+  skip_if_not(dir.exists("test-model"), "Test model not available")
+
+  rec <- OfflineRecognizer$new(model = "test-model")
+  results <- rec$transcribe_batch(character(0))
+
+  # Should return empty tibble with correct structure
+  expect_s3_class(results, "tbl_df")
+  expect_equal(nrow(results), 0)
+  expect_equal(ncol(results), 9)
+  expect_true("file" %in% names(results))
+  expect_true("text" %in% names(results))
 })
 
 test_that("OfflineRecognizer model_info returns information", {

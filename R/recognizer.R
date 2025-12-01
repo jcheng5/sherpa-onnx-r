@@ -120,8 +120,10 @@ OfflineRecognizer <- R6::R6Class(
     #'   - text: Transcribed text
     #'   - tokens: Character vector of tokens
     #'   - timestamps: Numeric vector of timestamps (if supported by model)
+    #'   - durations: Numeric vector of token durations (if supported by model)
     #'   - language: Detected language (if supported by model)
     #'   - emotion: Detected emotion (if supported by model)
+    #'   - event: Detected audio event (if supported by model)
     #'   - json: Full result as JSON string
     #'
     #' @examples
@@ -150,24 +152,68 @@ OfflineRecognizer <- R6::R6Class(
     #'
     #' @param wav_paths Character vector of WAV file paths
     #'
-    #' @return List of transcription results, one for each input file
+    #' @return Tibble with one row per file and columns:
+    #'   - file: Input file path (character)
+    #'   - text: Transcribed text (character)
+    #'   - tokens: List-column of token character vectors
+    #'   - timestamps: List-column of timestamp numeric vectors (or NULL)
+    #'   - durations: List-column of duration numeric vectors (or NULL)
+    #'   - language: Detected language (character, NA if not available)
+    #'   - emotion: Detected emotion (character, NA if not available)
+    #'   - event: Detected audio event (character, NA if not available)
+    #'   - json: Full result as JSON string (character)
     #'
     #' @examples
     #' \dontrun{
     #' rec <- OfflineRecognizer$new(model = "whisper-tiny")
     #' results <- rec$transcribe_batch(c("file1.wav", "file2.wav"))
-    #' for (i in seq_along(results)) {
-    #'   cat("File", i, ":", results[[i]]$text, "\n")
-    #' }
+    #'
+    #' # Access results via tibble columns
+    #' print(results$text)
+    #' print(results$file[1])
+    #'
+    #' # Access list-columns
+    #' first_tokens <- results$tokens[[1]]
     #' }
     transcribe_batch = function(wav_paths) {
       if (length(wav_paths) == 0) {
-        return(list())
+        # Return empty tibble with correct column structure
+        return(tibble::tibble(
+          file = character(0),
+          text = character(0),
+          tokens = list(),
+          timestamps = list(),
+          durations = list(),
+          language = character(0),
+          emotion = character(0),
+          event = character(0),
+          json = character(0)
+        ))
       }
 
-      lapply(wav_paths, function(path) {
+      # Transcribe all files
+      results <- lapply(wav_paths, function(path) {
         self$transcribe(path)
       })
+
+      # Convert list of results to tibble
+      tibble::tibble(
+        file = wav_paths,
+        text = vapply(results, function(r) r$text, character(1)),
+        tokens = lapply(results, function(r) r$tokens),
+        timestamps = lapply(results, function(r) r$timestamps),
+        durations = lapply(results, function(r) r$durations),
+        language = vapply(results, function(r) {
+          if (is.null(r$language)) NA_character_ else r$language
+        }, character(1)),
+        emotion = vapply(results, function(r) {
+          if (is.null(r$emotion)) NA_character_ else r$emotion
+        }, character(1)),
+        event = vapply(results, function(r) {
+          if (is.null(r$event)) NA_character_ else r$event
+        }, character(1)),
+        json = vapply(results, function(r) r$json, character(1))
+      )
     },
 
     #' @description
