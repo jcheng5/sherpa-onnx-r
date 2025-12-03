@@ -4,6 +4,10 @@
 
 An R package that provides offline speech recognition (audio file to text transcription) using the [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) library. Features automatic model downloads from HuggingFace Hub, support for multiple model architectures (Whisper, Paraformer, SenseVoice), and efficient batch processing.
 
+## UNDER CONSTRUCTION
+
+- There are currently limitations with regard to audio length. Keep audio input under 30 seconds for reliable transcription. (See [#1](https://github.com/jcheng5/sherpa-onnx-r/issues/1))
+
 ## Features
 
 - **Offline transcription**: No internet required after model download
