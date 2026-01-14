@@ -116,7 +116,7 @@ OfflineRecognizer <- R6::R6Class(
     #'
     #' @param wav_path Path to WAV file (must be 16kHz, 16-bit, mono)
     #'
-    #' @return List with transcription results containing:
+    #' @return A sherpa_transcription object (list-like) containing:
     #'   - text: Transcribed text
     #'   - tokens: Character vector of tokens
     #'   - timestamps: Numeric vector of timestamps (if supported by model)
@@ -126,11 +126,26 @@ OfflineRecognizer <- R6::R6Class(
     #'   - event: Detected audio event (if supported by model)
     #'   - json: Full result as JSON string
     #'
+    #'   The result has a custom print method but maintains list-like access
+    #'   (e.g., `result$text`). Use `as.character(result)` to extract just the
+    #'   text, or `summary(result)` for detailed statistics.
+    #'
     #' @examples
     #' \dontrun{
     #' rec <- OfflineRecognizer$new(model = "whisper-tiny")
     #' result <- rec$transcribe("audio.wav")
+    #'
+    #' # Print with custom format
+    #' print(result)
+    #'
+    #' # Access fields (backward compatible)
     #' cat("Transcription:", result$text, "\n")
+    #'
+    #' # Extract text
+    #' text <- as.character(result)
+    #'
+    #' # Detailed information
+    #' summary(result)
     #' }
     transcribe = function(wav_path) {
       # Expand tilde and other path shortcuts
@@ -144,7 +159,8 @@ OfflineRecognizer <- R6::R6Class(
         stop("Recognizer not initialized")
       }
 
-      transcribe_wav_(private$recognizer_ptr, wav_path)
+      result <- transcribe_wav_(private$recognizer_ptr, wav_path)
+      new_sherpa_transcription(result, private$model_info_cache)
     },
 
     #' @description

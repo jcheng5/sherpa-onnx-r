@@ -37,7 +37,18 @@ rec <- OfflineRecognizer$new(model = "/path/to/model")
 \dontrun{
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
 result <- rec$transcribe("audio.wav")
+
+# Print with custom format
+print(result)
+
+# Access fields (backward compatible)
 cat("Transcription:", result$text, "\n")
+
+# Extract text
+text <- as.character(result)
+
+# Detailed information
+summary(result)
 }
 
 ## ------------------------------------------------
@@ -47,9 +58,13 @@ cat("Transcription:", result$text, "\n")
 \dontrun{
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
 results <- rec$transcribe_batch(c("file1.wav", "file2.wav"))
-for (i in seq_along(results)) {
-  cat("File", i, ":", results[[i]]$text, "\n")
-}
+
+# Access results via tibble columns
+print(results$text)
+print(results$file[1])
+
+# Access list-columns
+first_tokens <- results$tokens[[1]]
 }
 
 ## ------------------------------------------------
@@ -150,20 +165,37 @@ Transcribe a WAV file
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-List with transcription results containing:
+A sherpa_transcription object (list-like) containing:
   - text: Transcribed text
   - tokens: Character vector of tokens
   - timestamps: Numeric vector of timestamps (if supported by model)
+  - durations: Numeric vector of token durations (if supported by model)
   - language: Detected language (if supported by model)
   - emotion: Detected emotion (if supported by model)
+  - event: Detected audio event (if supported by model)
   - json: Full result as JSON string
+
+  The result has a custom print method but maintains list-like access
+  (e.g., `result$text`). Use `as.character(result)` to extract just the
+  text, or `summary(result)` for detailed statistics.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{\dontrun{
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
 result <- rec$transcribe("audio.wav")
+
+# Print with custom format
+print(result)
+
+# Access fields (backward compatible)
 cat("Transcription:", result$text, "\n")
+
+# Extract text
+text <- as.character(result)
+
+# Detailed information
+summary(result)
 }
 }
 \if{html}{\out{</div>}}
@@ -188,16 +220,29 @@ Transcribe multiple WAV files in batch
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-List of transcription results, one for each input file
+Tibble with one row per file and columns:
+  - file: Input file path (character)
+  - text: Transcribed text (character)
+  - tokens: List-column of token character vectors
+  - timestamps: List-column of timestamp numeric vectors (or NULL)
+  - durations: List-column of duration numeric vectors (or NULL)
+  - language: Detected language (character, NA if not available)
+  - emotion: Detected emotion (character, NA if not available)
+  - event: Detected audio event (character, NA if not available)
+  - json: Full result as JSON string (character)
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{\dontrun{
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
 results <- rec$transcribe_batch(c("file1.wav", "file2.wav"))
-for (i in seq_along(results)) {
-  cat("File", i, ":", results[[i]]$text, "\n")
-}
+
+# Access results via tibble columns
+print(results$text)
+print(results$file[1])
+
+# Access list-columns
+first_tokens <- results$tokens[[1]]
 }
 }
 \if{html}{\out{</div>}}

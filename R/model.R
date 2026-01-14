@@ -47,10 +47,12 @@ resolve_model <- function(model = "parakeet-v3", verbose = TRUE) {
   }
 
   # 2. Check if it's a HuggingFace repo (contains "/")
+  shorthand <- NULL
   if (grepl("/", model, fixed = TRUE)) {
     hf_repo <- model
   } else {
     # 3. Treat as shorthand
+    shorthand <- model
     hf_repo <- SHORTHAND_MODELS[[model]]
     if (is.null(hf_repo)) {
       stop(
@@ -64,12 +66,19 @@ resolve_model <- function(model = "parakeet-v3", verbose = TRUE) {
   # Download from HuggingFace (or use cache)
   model_path <- download_hf_model(hf_repo, verbose = verbose)
 
-  return(list(
+  result <- list(
     type = "huggingface",
     repo = hf_repo,
     path = model_path,
     model_type = detect_model_type(model_path)
-  ))
+  )
+
+  # Store shorthand name for display purposes
+  if (!is.null(shorthand)) {
+    result$shorthand <- shorthand
+  }
+
+  return(result)
 }
 
 #' Download model from HuggingFace Hub

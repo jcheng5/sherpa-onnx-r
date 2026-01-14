@@ -1,3 +1,18 @@
+# Helper function to get test audio path
+get_test_audio <- function() {
+  # Try installed location first
+  audio_path <- system.file("extdata", "test.wav", package = "sherpa.onnx")
+  # Fall back to development location
+  if (audio_path == "" || !file.exists(audio_path)) {
+    audio_path <- "../../inst/extdata/test.wav"
+  }
+  # Another fallback for different test contexts
+  if (!file.exists(audio_path)) {
+    audio_path <- "../test.wav"
+  }
+  return(audio_path)
+}
+
 test_that("OfflineRecognizer class exists", {
   expect_true(exists("OfflineRecognizer"))
   expect_s3_class(OfflineRecognizer, "R6ClassGenerator")
@@ -40,6 +55,83 @@ test_that("OfflineRecognizer transcribe works with test audio", {
   expect_type(result, "list")
   expect_true("text" %in% names(result))
   expect_type(result$text, "character")
+})
+
+# S3 Class Tests
+test_that("transcribe returns sherpa_transcription S3 class", {
+  skip_if_not(file.exists(get_test_audio()), "Test audio not available")
+
+  rec <- OfflineRecognizer$new(model = "whisper-tiny")
+  result <- rec$transcribe(get_test_audio())
+
+  # Check S3 class
+  expect_s3_class(result, "sherpa_transcription")
+  expect_s3_class(result, "list")  # Should inherit from list
+
+  # Check backward compatibility - list access still works
+  expect_true("text" %in% names(result))
+  expect_type(result$text, "character")
+  expect_type(result$tokens, "character")
+
+  # Check S3 methods
+  expect_type(as.character(result), "character")
+  expect_equal(as.character(result), result$text)
+
+  # Check print method works (shouldn't error)
+  expect_output(print(result), "tokens")
+  expect_output(print(result), "whisper-tiny")
+
+  # Check summary method works
+  expect_output(summary(result), "Sherpa-ONNX Transcription")
+  expect_output(summary(result), "Text Statistics")
+})
+
+test_that("sherpa_transcription print method handles edge cases", {
+  skip_if_not(file.exists(get_test_audio()), "Test audio not available")
+
+  rec <- OfflineRecognizer$new(model = "whisper-tiny")
+  result <- rec$transcribe(get_test_audio())
+
+  # Test that print returns invisibly
+  return_value <- print(result)
+  expect_identical(return_value, result)
+
+  # Test print output format
+  output <- capture.output(print(result))
+  expect_match(output[1], "\\[\\d+ tokens \\| .+\\]")  # Metadata line
+  expect_equal(output[2], "")  # Blank line
+  expect_true(length(output) >= 3)  # Has text content
+})
+
+test_that("as.character.sherpa_transcription extracts text", {
+  skip_if_not(file.exists(get_test_audio()), "Test audio not available")
+
+  rec <- OfflineRecognizer$new(model = "whisper-tiny")
+  result <- rec$transcribe(get_test_audio())
+
+  text <- as.character(result)
+  expect_identical(text, result$text)
+  expect_type(text, "character")
+  expect_true(nchar(text) > 0)
+})
+
+test_that("summary.sherpa_transcription shows detailed info", {
+  skip_if_not(file.exists(get_test_audio()), "Test audio not available")
+
+  rec <- OfflineRecognizer$new(model = "whisper-tiny")
+  result <- rec$transcribe(get_test_audio())
+
+  output <- capture.output(summary(result))
+  output_text <- paste(output, collapse = "\n")
+
+  # Check for expected sections
+  expect_match(output_text, "Sherpa-ONNX Transcription")
+  expect_match(output_text, "Model:")
+  expect_match(output_text, "Text Statistics:")
+  expect_match(output_text, "Characters:")
+  expect_match(output_text, "Words:")
+  expect_match(output_text, "Tokens:")
+  expect_match(output_text, "Available Fields:")
 })
 
 test_that("OfflineRecognizer transcribe_batch works", {
@@ -98,9 +190,10 @@ test_that("OfflineRecognizer model_info returns information", {
 })
 
 test_that("read_wav works with valid WAV file", {
-  skip_if_not(file.exists("../test.wav"), "Test WAV not available")
+  test_audio <- get_test_audio()
+  skip_if_not(file.exists(test_audio), "Test WAV not available")
 
-  result <- read_wav("../test.wav")
+  result <- read_wav(test_audio)
 
   expect_type(result, "list")
   expect_true("samples" %in% names(result))
