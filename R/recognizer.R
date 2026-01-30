@@ -68,30 +68,17 @@ OfflineRecognizer <- R6::R6Class(
     },
 
     # Private method for VAD-based transcription
-    # Uses composable C++ functions: extract_vad_segments_() and transcribe_samples_()
-    # Batching and text concatenation are done in R for maintainability
+    # Uses vad() for speech detection, then transcribes each batch
     transcribe_with_vad = function(wav_path, vad_config) {
-      # Load audio
-      wav_data <- read_wav_(wav_path)
-      sample_rate <- wav_data$sample_rate
-
-      # Ensure VAD model is available
-      vad_model_path <- download_vad_model(
-        vad_config$model,
+      # Run VAD to detect speech segments
+      vad_result <- vad(
+        wav_path,
+        threshold = vad_config$threshold,
+        min_silence = vad_config$min_silence,
+        min_speech = vad_config$min_speech,
+        max_speech = vad_config$max_speech,
+        model = vad_config$model,
         verbose = vad_config$verbose
-      )
-
-      # Extract VAD segments (C++) - verbose output handled by C++
-      vad_result <- extract_vad_segments_(
-        vad_model_path,
-        wav_data$samples,
-        sample_rate,
-        vad_config$threshold,
-        vad_config$min_silence,
-        vad_config$min_speech,
-        vad_config$max_speech,
-        vad_config$window_size,
-        vad_config$verbose
       )
 
       # Handle case of no speech detected
@@ -121,7 +108,7 @@ OfflineRecognizer <- R6::R6Class(
         transcription <- transcribe_samples_(
           private$recognizer_ptr,
           batch$samples,
-          sample_rate
+          vad_result$sample_rate
         )
 
         list(
