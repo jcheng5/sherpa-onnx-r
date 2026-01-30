@@ -21,6 +21,7 @@ Summary method for sherpa_transcription
 Displays detailed information about the transcription including:
 - Model information (name, repo)
 - Text statistics (character count, word count, token count)
+- VAD segmentation info (if applicable)
 - Available fields with types and previews
 - First few tokens
 }

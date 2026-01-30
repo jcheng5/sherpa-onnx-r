@@ -21,6 +21,37 @@ OfflineRecognizer <- R6::R6Class(
         # SherpaOnnxDestroyOfflineRecognizer automatically
         private$recognizer_ptr <- NULL
       }
+    },
+
+    # Private method for VAD-based transcription
+    transcribe_with_vad = function(wav_path, vad_config) {
+      # Load audio
+      wav_data <- read_wav_(wav_path)
+      samples <- wav_data$samples
+      sample_rate <- wav_data$sample_rate
+
+      # Ensure VAD model is available
+      vad_model_path <- download_vad_model(
+        vad_config$model,
+        verbose = vad_config$verbose
+      )
+
+      # Call C++ VAD transcription
+      result <- transcribe_with_vad_(
+        private$recognizer_ptr,
+        vad_model_path,
+        samples,
+        sample_rate,
+        vad_config$threshold,
+        vad_config$min_silence,
+        vad_config$min_speech,
+        vad_config$max_speech,
+        vad_config$window_size,
+        vad_config$verbose
+      )
+
+      # Create transcription object with segment info
+      new_sherpa_transcription(result, private$model_info_cache)
     }
   ),
 
@@ -115,16 +146,33 @@ OfflineRecognizer <- R6::R6Class(
     #' Transcribe a WAV file
     #'
     #' @param wav_path Path to WAV file (must be 16kHz, 16-bit, mono)
+    #' @param use_vad Logical. If TRUE, uses Voice Activity Detection to split
+    #'   long audio files at natural pauses. Recommended for files longer than
+    #'   30 seconds. Default: FALSE (transcribe entire file at once).
+    #' @param vad_threshold Speech detection threshold (0-1). Lower = more sensitive.
+    #'   Default: 0.5
+    #' @param vad_min_silence Minimum silence duration (seconds) to split segments.
+    #'   Default: 0.5
+    #' @param vad_min_speech Minimum speech duration (seconds) to keep segment.
+    #'   Default: 0.25
+    #' @param vad_max_speech Maximum speech duration (seconds) before force split.
+    #'   Default: 30.0. Useful to prevent memory issues with very long speech.
+    #' @param vad_model VAD model to use. Default: "silero-vad" (auto-downloaded)
+    #' @param verbose Logical. Show progress messages. Default: TRUE
     #'
     #' @return A sherpa_transcription object (list-like) containing:
     #'   - text: Transcribed text
-    #'   - tokens: Character vector of tokens
+    #'   - tokens: Character vector of tokens (if not using VAD)
     #'   - timestamps: Numeric vector of timestamps (if supported by model)
     #'   - durations: Numeric vector of token durations (if supported by model)
     #'   - language: Detected language (if supported by model)
     #'   - emotion: Detected emotion (if supported by model)
     #'   - event: Detected audio event (if supported by model)
-    #'   - json: Full result as JSON string
+    #'   - json: Full result as JSON string (if not using VAD)
+    #'   - segments: Character vector of segment texts (if VAD used)
+    #'   - segment_starts: Start times of segments in seconds (if VAD used)
+    #'   - segment_durations: Duration of segments in seconds (if VAD used)
+    #'   - num_segments: Number of segments (if VAD used)
     #'
     #'   The result has a custom print method but maintains list-like access
     #'   (e.g., `result$text`). Use `as.character(result)` to extract just the
@@ -146,8 +194,21 @@ OfflineRecognizer <- R6::R6Class(
     #'
     #' # Detailed information
     #' summary(result)
+    #'
+    #' # Long audio with VAD
+    #' result <- rec$transcribe("podcast.wav", use_vad = TRUE)
+    #' print(result)  # Shows full text
+    #' result$segments  # Individual speech segments
+    #' result$segment_starts  # Timing of each segment
     #' }
-    transcribe = function(wav_path) {
+    transcribe = function(wav_path,
+                         use_vad = FALSE,
+                         vad_threshold = 0.5,
+                         vad_min_silence = 0.5,
+                         vad_min_speech = 0.25,
+                         vad_max_speech = 29.0,
+                         vad_model = "silero-vad",
+                         verbose = TRUE) {
       # Expand tilde and other path shortcuts
       wav_path <- path.expand(wav_path)
 
@@ -159,8 +220,40 @@ OfflineRecognizer <- R6::R6Class(
         stop("Recognizer not initialized")
       }
 
-      result <- transcribe_wav_(private$recognizer_ptr, wav_path)
-      new_sherpa_transcription(result, private$model_info_cache)
+      # Validate VAD parameters
+      if (use_vad) {
+        if (vad_threshold < 0 || vad_threshold > 1) {
+          stop("vad_threshold must be between 0 and 1")
+        }
+        if (vad_min_silence < 0) {
+          stop("vad_min_silence must be non-negative")
+        }
+        if (vad_min_speech < 0) {
+          stop("vad_min_speech must be non-negative")
+        }
+        if (vad_max_speech <= 0) {
+          stop("vad_max_speech must be positive")
+        }
+      }
+
+      # Simple transcription (no VAD)
+      if (!use_vad) {
+        result <- transcribe_wav_(private$recognizer_ptr, wav_path)
+        return(new_sherpa_transcription(result, private$model_info_cache))
+      }
+
+      # VAD-based transcription
+      vad_config <- list(
+        model = vad_model,
+        threshold = vad_threshold,
+        min_silence = vad_min_silence,
+        min_speech = vad_min_speech,
+        max_speech = vad_max_speech,
+        window_size = 512L,  # Silero VAD window size
+        verbose = verbose
+      )
+
+      private$transcribe_with_vad(wav_path, vad_config)
     },
 
     #' @description

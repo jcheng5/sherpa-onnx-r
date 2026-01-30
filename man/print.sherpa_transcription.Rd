@@ -19,7 +19,7 @@ Print method for sherpa_transcription
 }
 \details{
 Prints a clean, user-friendly representation with:
-- Metadata line: `[N tokens | model-name]`
+- Metadata line: `[N tokens | model-name]` or `[N segments | model-name]` for VAD
 - Blank line
 - Full transcription text
 }

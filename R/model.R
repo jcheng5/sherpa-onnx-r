@@ -7,10 +7,12 @@ NULL
 # Shorthand model mappings
 SHORTHAND_MODELS <- list(
   # Parakeet models (NeMo transducer, English)
+
   "parakeet-v3" = "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
   "parakeet-110m" = "csukuangfj/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000",
 
   # Whisper models (English-only)
+
   "whisper-tiny" = "csukuangfj/sherpa-onnx-whisper-tiny.en",
   "whisper-base" = "csukuangfj/sherpa-onnx-whisper-base.en",
   "whisper-small" = "csukuangfj/sherpa-onnx-whisper-small.en",
@@ -26,8 +28,58 @@ SHORTHAND_MODELS <- list(
   "whisper-distil-medium" = "csukuangfj/sherpa-onnx-whisper-distil-medium.en",
 
   # SenseVoice (Multilingual: Chinese, English, Japanese, Korean, Cantonese)
-  "sense-voice" = "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"
+  "sense-voice" = "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17",
+
+  # VAD models
+  "silero-vad" = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
 )
+
+#' Download VAD model
+#'
+#' @param vad_model VAD model name or URL (default: "silero-vad")
+#' @param verbose Whether to print progress
+#' @return Path to downloaded VAD model
+#' @noRd
+download_vad_model <- function(vad_model = "silero-vad", verbose = TRUE) {
+  cache_dir <- get_cache_dir()
+  vad_cache <- file.path(cache_dir, "vad")
+
+  if (!dir.exists(vad_cache)) {
+    dir.create(vad_cache, recursive = TRUE)
+  }
+
+  # Handle shorthand or URL
+  if (vad_model == "silero-vad") {
+    url <- SHORTHAND_MODELS[["silero-vad"]]
+    local_path <- file.path(vad_cache, "silero_vad.onnx")
+  } else if (grepl("^https?://", vad_model)) {
+    url <- vad_model
+    local_path <- file.path(vad_cache, basename(vad_model))
+  } else {
+    # Assume it's a local path
+    if (file.exists(vad_model)) {
+      return(normalizePath(vad_model))
+    }
+    stop("VAD model not found: ", vad_model)
+  }
+
+  # Check if already cached
+  if (file.exists(local_path)) {
+    if (verbose) message("Using cached VAD model: ", local_path)
+    return(normalizePath(local_path, mustWork = TRUE))
+  }
+
+  if (verbose) message("Downloading VAD model from: ", url)
+
+  # Download
+  tryCatch({
+    download.file(url, local_path, mode = "wb", quiet = !verbose)
+    if (verbose) message("VAD model downloaded to: ", local_path)
+    return(normalizePath(local_path, mustWork = TRUE))
+  }, error = function(e) {
+    stop("Failed to download VAD model: ", e$message)
+  })
+}
 
 #' Resolve model specification to local path
 #'

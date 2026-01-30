@@ -211,24 +211,3 @@ test_that("Parakeet 110m is faster than 600m model", {
               time_110m, time_600m, time_600m / time_110m))
 })
 
-# =============================================================================
-# PERFORMANCE BENCHMARKS (Optional, for development)
-# =============================================================================
-
-test_that("Performance benchmark for all models", {
-  skip_if_not(Sys.getenv("SHERPA_BENCHMARK", "false") == "true",
-              "Set SHERPA_BENCHMARK=true to run benchmarks")
-  skip_if_not(test_audio_exists(), "test.wav not available")
-
-  # Run comprehensive benchmarks and save to CSV
-  cat("\nRunning comprehensive model benchmarks...\n")
-  cat("This will take several minutes and download multiple models.\n\n")
-
-  # This would call the full test scripts
-  source("../../test_whisper_models.R", local = TRUE)
-  source("../../test_parakeet_models.R", local = TRUE)
-
-  # Check that CSV files were created
-  expect_true(file.exists("../../whisper_model_comparison.csv"))
-  expect_true(file.exists("../../parakeet_model_comparison.csv"))
-})

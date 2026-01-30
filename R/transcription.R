@@ -58,7 +58,7 @@ extract_model_display_name <- function(model_info) {
 #'
 #' @details
 #' Prints a clean, user-friendly representation with:
-#' - Metadata line: `[N tokens | model-name]`
+#' - Metadata line: `[N tokens | model-name]` or `[N segments | model-name]` for VAD
 #' - Blank line
 #' - Full transcription text
 #'
@@ -74,18 +74,31 @@ extract_model_display_name <- function(model_info) {
 #'
 #' @export
 print.sherpa_transcription <- function(x, ...) {
-  # Extract token count
-  token_count <- if (!is.null(x$tokens)) length(x$tokens) else 0
-
   # Extract model name from stored attribute
   model_info <- attr(x, "model_info")
   model_name <- extract_model_display_name(model_info)
 
-  # Print metadata line
+  # Build metadata parts
+  metadata_parts <- character()
+
+  # Token count (if available, for non-VAD results)
+  if (!is.null(x$tokens) && length(x$tokens) > 0) {
+    metadata_parts <- c(metadata_parts, sprintf("%d tokens", length(x$tokens)))
+  }
+
+  # Segment count (if VAD was used)
+  if (!is.null(x$num_segments) && x$num_segments > 0) {
+    metadata_parts <- c(metadata_parts, sprintf("%d segments", x$num_segments))
+  }
+
+  # Model name
   if (!is.null(model_name) && model_name != "") {
-    cat(sprintf("[%d tokens | %s]\n", token_count, model_name))
-  } else {
-    cat(sprintf("[%d tokens]\n", token_count))
+    metadata_parts <- c(metadata_parts, model_name)
+  }
+
+  # Print metadata line
+  if (length(metadata_parts) > 0) {
+    cat(sprintf("[%s]\n", paste(metadata_parts, collapse = " | ")))
   }
 
   # Blank line
@@ -132,6 +145,7 @@ as.character.sherpa_transcription <- function(x, ...) {
 #' Displays detailed information about the transcription including:
 #' - Model information (name, repo)
 #' - Text statistics (character count, word count, token count)
+#' - VAD segmentation info (if applicable)
 #' - Available fields with types and previews
 #' - First few tokens
 #'
@@ -146,6 +160,7 @@ as.character.sherpa_transcription <- function(x, ...) {
 #' @export
 summary.sherpa_transcription <- function(object, ...) {
   cat("Sherpa-ONNX Transcription\n")
+  cat("=========================\n\n")
 
   # Model info
   model_info <- attr(object, "model_info")
@@ -168,36 +183,47 @@ summary.sherpa_transcription <- function(object, ...) {
   cat(sprintf("  Words: %d\n", length(words)))
 
   token_count <- if (!is.null(object$tokens)) length(object$tokens) else 0
-  cat(sprintf("  Tokens: %d\n", token_count))
+  if (token_count > 0) {
+    cat(sprintf("  Tokens: %d\n", token_count))
+  }
   cat("\n")
+
+  # VAD segment info (if available)
+  if (!is.null(object$num_segments) && object$num_segments > 0) {
+    cat("VAD Segmentation:\n")
+    cat(sprintf("  Segments: %d\n", object$num_segments))
+    if (!is.null(object$segment_starts) && length(object$segment_starts) > 0 &&
+        !is.null(object$segment_durations) && length(object$segment_durations) > 0) {
+      total_duration <- max(object$segment_starts + object$segment_durations)
+      speech_duration <- sum(object$segment_durations)
+      cat(sprintf("  Total duration: %.1f sec\n", total_duration))
+      cat(sprintf("  Speech duration: %.1f sec\n", speech_duration))
+      cat(sprintf("  Speech ratio: %.1f%%\n", 100 * speech_duration / total_duration))
+    }
+    cat("\n")
+  }
 
   # Available fields
   cat("Available Fields:\n")
   for (field_name in names(object)) {
     value <- object[[field_name]]
     if (is.null(value)) {
-      cat(sprintf("  %-12s: NULL\n", field_name))
+      cat(sprintf("  %-20s: NULL\n", field_name))
     } else if (is.character(value) && length(value) == 1) {
-      display_len <- min(nchar(value), 50)
       display_val <- if (nchar(value) > 50) {
         paste0(substr(value, 1, 47), "...")
       } else {
         value
       }
-      cat(sprintf("  %-12s: chr (%d chars) \"%s\"\n", field_name, nchar(value), display_val))
+      cat(sprintf("  %-20s: chr \"%s\"\n", field_name, display_val))
     } else if (is.character(value)) {
-      preview <- if (length(value) > 5) {
-        c(head(value, 5), "...")
-      } else {
-        value
-      }
-      cat(sprintf("  %-12s: chr[%d] %s\n", field_name, length(value),
-                  paste(shQuote(preview, type = "cmd"), collapse = ", ")))
+      cat(sprintf("  %-20s: chr[%d]\n", field_name, length(value)))
+    } else if (is.numeric(value) && length(value) == 1) {
+      cat(sprintf("  %-20s: num %s\n", field_name, format(value, digits = 3)))
     } else if (is.numeric(value)) {
-      cat(sprintf("  %-12s: num[%d] (min: %.3f, max: %.3f)\n",
-                  field_name, length(value), min(value), max(value)))
+      cat(sprintf("  %-20s: num[%d]\n", field_name, length(value)))
     } else {
-      cat(sprintf("  %-12s: %s\n", field_name, typeof(value)))
+      cat(sprintf("  %-20s: %s\n", field_name, class(value)[1]))
     }
   }
 

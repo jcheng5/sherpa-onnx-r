@@ -49,6 +49,12 @@ text <- as.character(result)
 
 # Detailed information
 summary(result)
+
+# Long audio with VAD
+result <- rec$transcribe("podcast.wav", use_vad = TRUE)
+print(result)  # Shows full text
+result$segments  # Individual speech segments
+result$segment_starts  # Timing of each segment
 }
 
 ## ------------------------------------------------
@@ -154,26 +160,59 @@ rec <- OfflineRecognizer$new(model = "/path/to/model")
 \subsection{Method \code{transcribe()}}{
 Transcribe a WAV file
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OfflineRecognizer$transcribe(wav_path)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{OfflineRecognizer$transcribe(
+  wav_path,
+  use_vad = FALSE,
+  vad_threshold = 0.5,
+  vad_min_silence = 0.5,
+  vad_min_speech = 0.25,
+  vad_max_speech = 30,
+  vad_model = "silero-vad",
+  verbose = TRUE
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{wav_path}}{Path to WAV file (must be 16kHz, 16-bit, mono)}
+
+\item{\code{use_vad}}{Logical. If TRUE, uses Voice Activity Detection to split
+long audio files at natural pauses. Recommended for files longer than
+30 seconds. Default: FALSE (transcribe entire file at once).}
+
+\item{\code{vad_threshold}}{Speech detection threshold (0-1). Lower = more sensitive.
+Default: 0.5}
+
+\item{\code{vad_min_silence}}{Minimum silence duration (seconds) to split segments.
+Default: 0.5}
+
+\item{\code{vad_min_speech}}{Minimum speech duration (seconds) to keep segment.
+Default: 0.25}
+
+\item{\code{vad_max_speech}}{Maximum speech duration (seconds) before force split.
+Default: 30.0. Useful to prevent memory issues with very long speech.}
+
+\item{\code{vad_model}}{VAD model to use. Default: "silero-vad" (auto-downloaded)}
+
+\item{\code{verbose}}{Logical. Show progress messages. Default: TRUE}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
 A sherpa_transcription object (list-like) containing:
   - text: Transcribed text
-  - tokens: Character vector of tokens
+  - tokens: Character vector of tokens (if not using VAD)
   - timestamps: Numeric vector of timestamps (if supported by model)
   - durations: Numeric vector of token durations (if supported by model)
   - language: Detected language (if supported by model)
   - emotion: Detected emotion (if supported by model)
   - event: Detected audio event (if supported by model)
-  - json: Full result as JSON string
+  - json: Full result as JSON string (if not using VAD)
+  - segments: Character vector of segment texts (if VAD used)
+  - segment_starts: Start times of segments in seconds (if VAD used)
+  - segment_durations: Duration of segments in seconds (if VAD used)
+  - num_segments: Number of segments (if VAD used)
 
   The result has a custom print method but maintains list-like access
   (e.g., `result$text`). Use `as.character(result)` to extract just the
@@ -196,6 +235,12 @@ text <- as.character(result)
 
 # Detailed information
 summary(result)
+
+# Long audio with VAD
+result <- rec$transcribe("podcast.wav", use_vad = TRUE)
+print(result)  # Shows full text
+result$segments  # Individual speech segments
+result$segment_starts  # Timing of each segment
 }
 }
 \if{html}{\out{</div>}}
