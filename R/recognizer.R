@@ -1,3 +1,47 @@
+# Batch VAD segments together up to a maximum duration
+# Each batch will contain concatenated audio from one or more segments
+# @param segments List of segments from extract_vad_segments_()
+# @param max_duration Maximum batch duration in seconds (default 29 for Whisper)
+# @return List of batches, each with samples, start_time, and duration
+batch_segments <- function(segments, max_duration = 29.0) {
+  if (length(segments) == 0) {
+    return(list())
+  }
+
+  batches <- list()
+  batch_idx <- 1
+  seg_idx <- 1
+
+  while (seg_idx <= length(segments)) {
+    batch_samples <- numeric(0)
+    batch_start_time <- segments[[seg_idx]]$start_time
+    batch_duration <- 0.0
+
+    while (seg_idx <= length(segments)) {
+      seg <- segments[[seg_idx]]
+
+      # Always add at least one segment; stop if exceeding max
+      if (length(batch_samples) > 0 &&
+          (batch_duration + seg$duration) > max_duration) {
+        break
+      }
+
+      batch_samples <- c(batch_samples, seg$samples)
+      batch_duration <- batch_duration + seg$duration
+      seg_idx <- seg_idx + 1
+    }
+
+    batches[[batch_idx]] <- list(
+      samples = batch_samples,
+      start_time = batch_start_time,
+      duration = batch_duration
+    )
+    batch_idx <- batch_idx + 1
+  }
+
+  batches
+}
+
 #' Offline Speech Recognizer
 #'
 #' @description
@@ -24,10 +68,11 @@ OfflineRecognizer <- R6::R6Class(
     },
 
     # Private method for VAD-based transcription
+    # Uses composable C++ functions: extract_vad_segments_() and transcribe_samples_()
+    # Batching and text concatenation are done in R for maintainability
     transcribe_with_vad = function(wav_path, vad_config) {
       # Load audio
       wav_data <- read_wav_(wav_path)
-      samples <- wav_data$samples
       sample_rate <- wav_data$sample_rate
 
       # Ensure VAD model is available
@@ -36,11 +81,10 @@ OfflineRecognizer <- R6::R6Class(
         verbose = vad_config$verbose
       )
 
-      # Call C++ VAD transcription
-      result <- transcribe_with_vad_(
-        private$recognizer_ptr,
+      # Extract VAD segments (C++) - verbose output handled by C++
+      vad_result <- extract_vad_segments_(
         vad_model_path,
-        samples,
+        wav_data$samples,
         sample_rate,
         vad_config$threshold,
         vad_config$min_silence,
@@ -50,7 +94,60 @@ OfflineRecognizer <- R6::R6Class(
         vad_config$verbose
       )
 
-      # Create transcription object with segment info
+      # Handle case of no speech detected
+      if (vad_result$num_segments == 0) {
+        result <- list(
+          text = "",
+          segments = character(0),
+          segment_starts = numeric(0),
+          segment_durations = numeric(0),
+          num_segments = 0L
+        )
+        return(new_sherpa_transcription(result, private$model_info_cache))
+      }
+
+      # Batch segments (R) - groups segments up to 29s max
+      batches <- batch_segments(vad_result$segments, max_duration = 29.0)
+
+      # Transcribe each batch (C++)
+      batch_results <- lapply(seq_along(batches), function(i) {
+        batch <- batches[[i]]
+
+        if (vad_config$verbose) {
+          message(sprintf("Transcribing batch %d: %.2f - %.2f sec",
+                          i, batch$start_time, batch$start_time + batch$duration))
+        }
+
+        transcription <- transcribe_samples_(
+          private$recognizer_ptr,
+          batch$samples,
+          sample_rate
+        )
+
+        list(
+          text = transcription$text,
+          start_time = batch$start_time,
+          duration = batch$duration
+        )
+      })
+
+      # Combine results (R)
+      segment_texts <- vapply(batch_results, function(x) x$text, character(1))
+      segment_starts <- vapply(batch_results, function(x) x$start_time, numeric(1))
+      segment_durations <- vapply(batch_results, function(x) x$duration, numeric(1))
+
+      # Combine text, skipping empty segments
+      non_empty <- nzchar(trimws(segment_texts))
+      full_text <- trimws(paste(segment_texts[non_empty], collapse = " "))
+
+      result <- list(
+        text = full_text,
+        segments = segment_texts,
+        segment_starts = segment_starts,
+        segment_durations = segment_durations,
+        num_segments = length(batch_results)
+      )
+
       new_sherpa_transcription(result, private$model_info_cache)
     }
   ),

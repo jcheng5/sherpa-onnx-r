@@ -8,6 +8,10 @@ transcribe_wav_ <- function(recognizer_xptr, wav_path) {
   .Call(`_sherpa_onnx_transcribe_wav_`, recognizer_xptr, wav_path)
 }
 
+transcribe_samples_ <- function(recognizer_xptr, samples, sample_rate) {
+  .Call(`_sherpa_onnx_transcribe_samples_`, recognizer_xptr, samples, sample_rate)
+}
+
 destroy_recognizer_ <- function(recognizer_xptr) {
   invisible(.Call(`_sherpa_onnx_destroy_recognizer_`, recognizer_xptr))
 }
@@ -16,6 +20,6 @@ read_wav_ <- function(wav_path) {
   .Call(`_sherpa_onnx_read_wav_`, wav_path)
 }
 
-transcribe_with_vad_ <- function(recognizer_xptr, vad_model_path, samples, sample_rate, vad_threshold, vad_min_silence, vad_min_speech, vad_max_speech, vad_window_size, verbose) {
-  .Call(`_sherpa_onnx_transcribe_with_vad_`, recognizer_xptr, vad_model_path, samples, sample_rate, vad_threshold, vad_min_silence, vad_min_speech, vad_max_speech, vad_window_size, verbose)
+extract_vad_segments_ <- function(vad_model_path, samples, sample_rate, vad_threshold, vad_min_silence, vad_min_speech, vad_max_speech, vad_window_size, verbose) {
+  .Call(`_sherpa_onnx_extract_vad_segments_`, vad_model_path, samples, sample_rate, vad_threshold, vad_min_silence, vad_min_speech, vad_max_speech, vad_window_size, verbose)
 }

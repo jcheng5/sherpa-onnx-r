@@ -20,6 +20,13 @@ extern "C" SEXP _sherpa_onnx_transcribe_wav_(SEXP recognizer_xptr, SEXP wav_path
   END_CPP11
 }
 // recognizer.cpp
+list transcribe_samples_(SEXP recognizer_xptr, doubles samples, int sample_rate);
+extern "C" SEXP _sherpa_onnx_transcribe_samples_(SEXP recognizer_xptr, SEXP samples, SEXP sample_rate) {
+  BEGIN_CPP11
+    return cpp11::as_sexp(transcribe_samples_(cpp11::as_cpp<cpp11::decay_t<SEXP>>(recognizer_xptr), cpp11::as_cpp<cpp11::decay_t<doubles>>(samples), cpp11::as_cpp<cpp11::decay_t<int>>(sample_rate)));
+  END_CPP11
+}
+// recognizer.cpp
 void destroy_recognizer_(SEXP recognizer_xptr);
 extern "C" SEXP _sherpa_onnx_destroy_recognizer_(SEXP recognizer_xptr) {
   BEGIN_CPP11
@@ -35,10 +42,10 @@ extern "C" SEXP _sherpa_onnx_read_wav_(SEXP wav_path) {
   END_CPP11
 }
 // vad.cpp
-list transcribe_with_vad_(SEXP recognizer_xptr, std::string vad_model_path, doubles samples, int sample_rate, double vad_threshold, double vad_min_silence, double vad_min_speech, double vad_max_speech, int vad_window_size, bool verbose);
-extern "C" SEXP _sherpa_onnx_transcribe_with_vad_(SEXP recognizer_xptr, SEXP vad_model_path, SEXP samples, SEXP sample_rate, SEXP vad_threshold, SEXP vad_min_silence, SEXP vad_min_speech, SEXP vad_max_speech, SEXP vad_window_size, SEXP verbose) {
+list extract_vad_segments_(std::string vad_model_path, doubles samples, int sample_rate, double vad_threshold, double vad_min_silence, double vad_min_speech, double vad_max_speech, int vad_window_size, bool verbose);
+extern "C" SEXP _sherpa_onnx_extract_vad_segments_(SEXP vad_model_path, SEXP samples, SEXP sample_rate, SEXP vad_threshold, SEXP vad_min_silence, SEXP vad_min_speech, SEXP vad_max_speech, SEXP vad_window_size, SEXP verbose) {
   BEGIN_CPP11
-    return cpp11::as_sexp(transcribe_with_vad_(cpp11::as_cpp<cpp11::decay_t<SEXP>>(recognizer_xptr), cpp11::as_cpp<cpp11::decay_t<std::string>>(vad_model_path), cpp11::as_cpp<cpp11::decay_t<doubles>>(samples), cpp11::as_cpp<cpp11::decay_t<int>>(sample_rate), cpp11::as_cpp<cpp11::decay_t<double>>(vad_threshold), cpp11::as_cpp<cpp11::decay_t<double>>(vad_min_silence), cpp11::as_cpp<cpp11::decay_t<double>>(vad_min_speech), cpp11::as_cpp<cpp11::decay_t<double>>(vad_max_speech), cpp11::as_cpp<cpp11::decay_t<int>>(vad_window_size), cpp11::as_cpp<cpp11::decay_t<bool>>(verbose)));
+    return cpp11::as_sexp(extract_vad_segments_(cpp11::as_cpp<cpp11::decay_t<std::string>>(vad_model_path), cpp11::as_cpp<cpp11::decay_t<doubles>>(samples), cpp11::as_cpp<cpp11::decay_t<int>>(sample_rate), cpp11::as_cpp<cpp11::decay_t<double>>(vad_threshold), cpp11::as_cpp<cpp11::decay_t<double>>(vad_min_silence), cpp11::as_cpp<cpp11::decay_t<double>>(vad_min_speech), cpp11::as_cpp<cpp11::decay_t<double>>(vad_max_speech), cpp11::as_cpp<cpp11::decay_t<int>>(vad_window_size), cpp11::as_cpp<cpp11::decay_t<bool>>(verbose)));
   END_CPP11
 }
 
@@ -46,9 +53,10 @@ extern "C" {
 static const R_CallMethodDef CallEntries[] = {
     {"_sherpa_onnx_create_offline_recognizer_", (DL_FUNC) &_sherpa_onnx_create_offline_recognizer_, 11},
     {"_sherpa_onnx_destroy_recognizer_",        (DL_FUNC) &_sherpa_onnx_destroy_recognizer_,         1},
+    {"_sherpa_onnx_extract_vad_segments_",      (DL_FUNC) &_sherpa_onnx_extract_vad_segments_,       9},
     {"_sherpa_onnx_read_wav_",                  (DL_FUNC) &_sherpa_onnx_read_wav_,                   1},
+    {"_sherpa_onnx_transcribe_samples_",        (DL_FUNC) &_sherpa_onnx_transcribe_samples_,         3},
     {"_sherpa_onnx_transcribe_wav_",            (DL_FUNC) &_sherpa_onnx_transcribe_wav_,             2},
-    {"_sherpa_onnx_transcribe_with_vad_",       (DL_FUNC) &_sherpa_onnx_transcribe_with_vad_,       10},
     {NULL, NULL, 0}
 };
 }

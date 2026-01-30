@@ -46,6 +46,77 @@ static bool is_valid_wav(const std::string &filename) {
   return true;
 }
 
+// Helper function to convert recognition result to R list
+static writable::list convert_result_to_list(const SherpaOnnxOfflineRecognizerResult *result) {
+  writable::list out;
+
+  // Text
+  out.push_back({"text"_nm = std::string(result->text)});
+
+  // Tokens
+  if (result->tokens_arr != nullptr && result->count > 0) {
+    writable::strings tokens_vec;
+    for (int32_t i = 0; i < result->count; ++i) {
+      tokens_vec.push_back(std::string(result->tokens_arr[i]));
+    }
+    out.push_back({"tokens"_nm = tokens_vec});
+  } else {
+    out.push_back({"tokens"_nm = R_NilValue});
+  }
+
+  // Timestamps
+  if (result->timestamps != nullptr && result->count > 0) {
+    writable::doubles timestamps_vec;
+    for (int32_t i = 0; i < result->count; ++i) {
+      timestamps_vec.push_back(result->timestamps[i]);
+    }
+    out.push_back({"timestamps"_nm = timestamps_vec});
+  } else {
+    out.push_back({"timestamps"_nm = R_NilValue});
+  }
+
+  // Durations
+  if (result->durations != nullptr && result->count > 0) {
+    writable::doubles durations_vec;
+    for (int32_t i = 0; i < result->count; ++i) {
+      durations_vec.push_back(result->durations[i]);
+    }
+    out.push_back({"durations"_nm = durations_vec});
+  } else {
+    out.push_back({"durations"_nm = R_NilValue});
+  }
+
+  // Language
+  if (result->lang != nullptr && strlen(result->lang) > 0) {
+    out.push_back({"language"_nm = std::string(result->lang)});
+  } else {
+    out.push_back({"language"_nm = R_NilValue});
+  }
+
+  // Emotion
+  if (result->emotion != nullptr && strlen(result->emotion) > 0) {
+    out.push_back({"emotion"_nm = std::string(result->emotion)});
+  } else {
+    out.push_back({"emotion"_nm = R_NilValue});
+  }
+
+  // Event
+  if (result->event != nullptr && strlen(result->event) > 0) {
+    out.push_back({"event"_nm = std::string(result->event)});
+  } else {
+    out.push_back({"event"_nm = R_NilValue});
+  }
+
+  // JSON
+  if (result->json != nullptr) {
+    out.push_back({"json"_nm = std::string(result->json)});
+  } else {
+    out.push_back({"json"_nm = R_NilValue});
+  }
+
+  return out;
+}
+
 // Helper function to create a default config
 static SherpaOnnxOfflineRecognizerConfig get_default_config() {
   SherpaOnnxOfflineRecognizerConfig config;
@@ -173,77 +244,66 @@ list transcribe_wav_(SEXP recognizer_xptr, std::string wav_path) {
   const SherpaOnnxOfflineRecognizerResult *result =
       SherpaOnnxGetOfflineStreamResult(stream);
 
-  // Convert result to R list
-  writable::list out;
-
-  // Text
-  out.push_back({"text"_nm = std::string(result->text)});
-
-  // Tokens
-  if (result->tokens_arr != nullptr && result->count > 0) {
-    writable::strings tokens_vec;
-    for (int32_t i = 0; i < result->count; ++i) {
-      tokens_vec.push_back(std::string(result->tokens_arr[i]));
-    }
-    out.push_back({"tokens"_nm = tokens_vec});
-  } else {
-    out.push_back({"tokens"_nm = R_NilValue});
-  }
-
-  // Timestamps
-  if (result->timestamps != nullptr && result->count > 0) {
-    writable::doubles timestamps_vec;
-    for (int32_t i = 0; i < result->count; ++i) {
-      timestamps_vec.push_back(result->timestamps[i]);
-    }
-    out.push_back({"timestamps"_nm = timestamps_vec});
-  } else {
-    out.push_back({"timestamps"_nm = R_NilValue});
-  }
-
-  // Durations
-  if (result->durations != nullptr && result->count > 0) {
-    writable::doubles durations_vec;
-    for (int32_t i = 0; i < result->count; ++i) {
-      durations_vec.push_back(result->durations[i]);
-    }
-    out.push_back({"durations"_nm = durations_vec});
-  } else {
-    out.push_back({"durations"_nm = R_NilValue});
-  }
-
-  // Language
-  if (result->lang != nullptr && strlen(result->lang) > 0) {
-    out.push_back({"language"_nm = std::string(result->lang)});
-  } else {
-    out.push_back({"language"_nm = R_NilValue});
-  }
-
-  // Emotion
-  if (result->emotion != nullptr && strlen(result->emotion) > 0) {
-    out.push_back({"emotion"_nm = std::string(result->emotion)});
-  } else {
-    out.push_back({"emotion"_nm = R_NilValue});
-  }
-
-  // Event
-  if (result->event != nullptr && strlen(result->event) > 0) {
-    out.push_back({"event"_nm = std::string(result->event)});
-  } else {
-    out.push_back({"event"_nm = R_NilValue});
-  }
-
-  // JSON
-  if (result->json != nullptr) {
-    out.push_back({"json"_nm = std::string(result->json)});
-  } else {
-    out.push_back({"json"_nm = R_NilValue});
-  }
+  // Convert result to R list using helper
+  writable::list out = convert_result_to_list(result);
 
   // Cleanup
   SherpaOnnxDestroyOfflineRecognizerResult(result);
   SherpaOnnxDestroyOfflineStream(stream);
   SherpaOnnxFreeWave(wave);
+
+  return out;
+}
+
+// Transcribe raw audio samples
+// Returns a list with transcription results
+[[cpp11::register]]
+list transcribe_samples_(SEXP recognizer_xptr, doubles samples, int sample_rate) {
+  // Get recognizer from external pointer
+  external_pointer<const SherpaOnnxOfflineRecognizer> recognizer(recognizer_xptr);
+
+  if (recognizer.get() == nullptr) {
+    stop("Invalid recognizer pointer");
+  }
+
+  if (samples.size() == 0) {
+    stop("Empty audio samples");
+  }
+
+  // Convert R doubles to float array
+  std::vector<float> samples_vec(samples.size());
+  for (size_t i = 0; i < samples.size(); ++i) {
+    samples_vec[i] = static_cast<float>(samples[i]);
+  }
+
+  // Create stream
+  const SherpaOnnxOfflineStream *stream =
+      SherpaOnnxCreateOfflineStream(recognizer.get());
+
+  if (stream == nullptr) {
+    stop("Failed to create offline stream");
+  }
+
+  // Accept waveform
+  SherpaOnnxAcceptWaveformOffline(
+      stream,
+      sample_rate,
+      samples_vec.data(),
+      samples_vec.size());
+
+  // Decode
+  SherpaOnnxDecodeOfflineStream(recognizer.get(), stream);
+
+  // Get result
+  const SherpaOnnxOfflineRecognizerResult *result =
+      SherpaOnnxGetOfflineStreamResult(stream);
+
+  // Convert result to R list using helper
+  writable::list out = convert_result_to_list(result);
+
+  // Cleanup
+  SherpaOnnxDestroyOfflineRecognizerResult(result);
+  SherpaOnnxDestroyOfflineStream(stream);
 
   return out;
 }

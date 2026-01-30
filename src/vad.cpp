@@ -10,21 +10,10 @@
 
 using namespace cpp11;
 
-// Maximum batch duration in seconds (Whisper truncates at 30s, use 29s for safety margin)
-static const float MAX_BATCH_DURATION = 29.0f;
-
-// Structure to hold a VAD segment's data
-struct VadSegment {
-  std::vector<float> samples;
-  int32_t start_sample;  // Start position in original audio
-  int32_t num_samples;   // Number of samples
-};
-
-// Transcribe audio using VAD segmentation
-// VAD segments are batched together up to 30 seconds to preserve context
+// Extract VAD segments from audio samples
+// Returns a list of segments, each with samples, start_time, and duration
 [[cpp11::register]]
-list transcribe_with_vad_(
-    SEXP recognizer_xptr,
+list extract_vad_segments_(
     std::string vad_model_path,
     doubles samples,
     int sample_rate,
@@ -34,13 +23,6 @@ list transcribe_with_vad_(
     double vad_max_speech,
     int vad_window_size,
     bool verbose) {
-
-  // Get recognizer from external pointer
-  external_pointer<const SherpaOnnxOfflineRecognizer> recognizer(recognizer_xptr);
-
-  if (recognizer.get() == nullptr) {
-    stop("Invalid recognizer pointer");
-  }
 
   if (samples.size() == 0) {
     stop("Empty audio samples");
@@ -76,10 +58,11 @@ list transcribe_with_vad_(
     stop("Failed to create VAD instance. Check model path: %s", vad_model_path.c_str());
   }
 
-  // First pass: collect all VAD segments
-  std::vector<VadSegment> vad_segments;
+  // Collect all VAD segments
+  writable::list segments_list;
   size_t i = 0;
   int is_eof = 0;
+  int num_segments = 0;
 
   while (!is_eof) {
     // Feed audio to VAD in windows
@@ -97,12 +80,24 @@ list transcribe_with_vad_(
       const SherpaOnnxSpeechSegment *segment =
           SherpaOnnxVoiceActivityDetectorFront(vad);
 
-      VadSegment vs;
-      vs.start_sample = segment->start;
-      vs.num_samples = segment->n;
-      vs.samples.assign(segment->samples, segment->samples + segment->n);
+      // Convert samples to R doubles
+      writable::doubles seg_samples;
+      for (int32_t j = 0; j < segment->n; ++j) {
+        seg_samples.push_back(segment->samples[j]);
+      }
 
-      vad_segments.push_back(std::move(vs));
+      // Calculate times
+      double start_time = segment->start / static_cast<double>(sample_rate);
+      double duration = segment->n / static_cast<double>(sample_rate);
+
+      // Create segment list
+      writable::list seg_info;
+      seg_info.push_back({"samples"_nm = seg_samples});
+      seg_info.push_back({"start_time"_nm = start_time});
+      seg_info.push_back({"duration"_nm = duration});
+
+      segments_list.push_back(seg_info);
+      num_segments++;
 
       SherpaOnnxDestroySpeechSegment(segment);
       SherpaOnnxVoiceActivityDetectorPop(vad);
@@ -115,104 +110,14 @@ list transcribe_with_vad_(
   SherpaOnnxDestroyVoiceActivityDetector(vad);
 
   if (verbose) {
-    Rprintf("VAD detected %zu speech segments\n", vad_segments.size());
+    Rprintf("VAD detected %d speech segments\n", num_segments);
   }
 
-  // Storage for transcription results (one per batch)
-  std::vector<std::string> batch_texts;
-  std::vector<double> batch_start_times;
-  std::vector<double> batch_durations;
-
-  // Second pass: batch segments together up to MAX_BATCH_DURATION and transcribe
-  size_t seg_idx = 0;
-  int batch_count = 0;
-
-  while (seg_idx < vad_segments.size()) {
-    // Start a new batch
-    std::vector<float> batch_samples;
-    int32_t batch_start_sample = vad_segments[seg_idx].start_sample;
-    float batch_duration = 0.0f;
-
-    // Add segments to batch until we would exceed MAX_BATCH_DURATION
-    while (seg_idx < vad_segments.size()) {
-      const VadSegment& seg = vad_segments[seg_idx];
-      float seg_duration = seg.num_samples / static_cast<float>(sample_rate);
-
-      // Check if adding this segment would exceed the limit
-      // Always add at least one segment to the batch
-      if (!batch_samples.empty() && (batch_duration + seg_duration) > MAX_BATCH_DURATION) {
-        break;
-      }
-
-      // Add this segment's samples to the batch
-      batch_samples.insert(batch_samples.end(), seg.samples.begin(), seg.samples.end());
-      batch_duration += seg_duration;
-      seg_idx++;
-    }
-
-    batch_count++;
-    float batch_start_sec = batch_start_sample / static_cast<float>(sample_rate);
-
-    if (verbose) {
-      Rprintf("Transcribing batch %d: %.2f - %.2f sec (%.2f sec, %zu samples)\n",
-              batch_count, batch_start_sec, batch_start_sec + batch_duration,
-              batch_duration, batch_samples.size());
-    }
-
-    // Transcribe this batch
-    const SherpaOnnxOfflineStream *stream =
-        SherpaOnnxCreateOfflineStream(recognizer.get());
-
-    SherpaOnnxAcceptWaveformOffline(
-        stream, sample_rate, batch_samples.data(), batch_samples.size());
-
-    SherpaOnnxDecodeOfflineStream(recognizer.get(), stream);
-
-    const SherpaOnnxOfflineRecognizerResult *result =
-        SherpaOnnxGetOfflineStreamResult(stream);
-
-    // Store batch info
-    batch_start_times.push_back(static_cast<double>(batch_start_sec));
-    batch_durations.push_back(static_cast<double>(batch_duration));
-    batch_texts.push_back(std::string(result->text));
-
-    // Cleanup
-    SherpaOnnxDestroyOfflineRecognizerResult(result);
-    SherpaOnnxDestroyOfflineStream(stream);
-  }
-
-  // Build combined result
-  std::string full_text;
-  for (size_t j = 0; j < batch_texts.size(); ++j) {
-    std::string seg_text = batch_texts[j];
-
-    // Skip empty segments
-    if (seg_text.empty()) continue;
-
-    // Add space between non-empty segments
-    if (!full_text.empty()) {
-      full_text += " ";
-    }
-    full_text += seg_text;
-  }
-
-  // Convert vectors to R types
-  writable::strings segments_vec;
-  writable::doubles starts_vec;
-  writable::doubles durations_vec;
-
-  for (size_t j = 0; j < batch_texts.size(); ++j) {
-    segments_vec.push_back(batch_texts[j]);
-    starts_vec.push_back(batch_start_times[j]);
-    durations_vec.push_back(batch_durations[j]);
-  }
-
+  // Return result
   writable::list out;
-  out.push_back({"text"_nm = full_text});
-  out.push_back({"segments"_nm = segments_vec});
-  out.push_back({"segment_starts"_nm = starts_vec});
-  out.push_back({"segment_durations"_nm = durations_vec});
-  out.push_back({"num_segments"_nm = batch_count});
+  out.push_back({"segments"_nm = segments_list});
+  out.push_back({"num_segments"_nm = num_segments});
 
   return out;
 }
+
