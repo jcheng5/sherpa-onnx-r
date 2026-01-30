@@ -166,7 +166,7 @@ Transcribe a WAV file
   vad_threshold = 0.5,
   vad_min_silence = 0.5,
   vad_min_speech = 0.25,
-  vad_max_speech = 30,
+  vad_max_speech = 29,
   vad_model = "silero-vad",
   verbose = TRUE
 )}\if{html}{\out{</div>}}
