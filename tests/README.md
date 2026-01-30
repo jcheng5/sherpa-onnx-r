@@ -25,7 +25,7 @@ R CMD check sherpa.onnx_*.tar.gz
 ```
 
 **Default behavior:**
-- Runs whisper-tiny model test (~30 seconds)
+- Runs whisper-tiny model test
 - Skips comprehensive model comparisons
 - Suitable for CI/CD pipelines
 
