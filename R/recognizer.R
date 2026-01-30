@@ -50,6 +50,7 @@ batch_segments <- function(segments, max_duration = 29.0) {
 #' SenseVoice, and Transducer models.
 #'
 #' @importFrom R6 R6Class
+#' @importFrom utils download.file head
 #' @export
 OfflineRecognizer <- R6::R6Class(
   "OfflineRecognizer",
