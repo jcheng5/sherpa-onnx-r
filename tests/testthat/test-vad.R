@@ -1,5 +1,30 @@
 # Tests for VAD (Voice Activity Detection) transcription
 
+# Helper to find longtest.wav - it's in the repo but excluded from the package
+# via .Rbuildignore to save space. During R CMD check, look in the source tree.
+find_longtest_wav <- function() {
+
+  # First try installed package location (won't exist if .Rbuildignore'd)
+  pkg_path <- system.file("extdata", "longtest.wav", package = "sherpa.onnx")
+  if (nzchar(pkg_path) && file.exists(pkg_path)) {
+    return(pkg_path)
+  }
+
+
+  # During R CMD check, tests run from the package source directory
+
+  # Try relative path from test directory
+
+  source_path <- file.path(
+    testthat::test_path(), "..", "..", "inst", "extdata", "longtest.wav"
+  )
+  if (file.exists(source_path)) {
+    return(normalizePath(source_path))
+  }
+
+  NULL
+}
+
 test_that("VAD model auto-downloads", {
   # This should trigger download if not cached
   vad_path <- download_vad_model("silero-vad", verbose = FALSE)
@@ -27,18 +52,13 @@ test_that("VAD model rejects invalid paths", {
 
 test_that("Auto-VAD triggers for long audio with Whisper", {
   skip_on_cran()
-  skip_if_not(
-    file.exists(system.file("extdata", "longtest.wav", package = "sherpa.onnx")),
-    "longtest.wav not available"
-  )
+  longtest_path <- find_longtest_wav()
+  skip_if(is.null(longtest_path), "longtest.wav not available")
 
   rec <- OfflineRecognizer$new(model = "whisper-tiny", verbose = FALSE)
 
   # Long audio should automatically use VAD
-  result <- rec$transcribe(
-    system.file("extdata", "longtest.wav", package = "sherpa.onnx"),
-    verbose = FALSE
-  )
+  result <- rec$transcribe(longtest_path, verbose = FALSE)
 
   # Check structure
   expect_s3_class(result, "sherpa_transcription")

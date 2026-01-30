@@ -22,3 +22,4 @@
 ^src/.*\.so$
 ^src/Makevars$
 ^vignettes$
+^inst/extdata/longtest\.wav$
