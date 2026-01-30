@@ -1,8 +1,9 @@
 ---
-title: "Processing Long Audio Files with VAD"
+title: "Processing Long Audio Files"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Processing Long Audio Files with VAD}
+  %\VignetteIndexEntry{Processing Long Audio Files}
+
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -11,178 +12,162 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE
+  eval = FALSE,
+  purl = FALSE
 )
 ```
+## Automatic VAD for Long Audio
 
-## Why Use VAD?
-  
-Voice Activity Detection (VAD) automatically splits long audio files at natural
-pauses in speech, providing several benefits:
-
-- **Better quality**: Segments are created at natural pauses, not mid-word
-- **Universal compatibility**: Works with ANY model (not just those with timestamps)
-- **Reduced memory usage**: Processes audio in segments rather than all at once
-- **Timing information**: Provides start time and duration for each segment
-
-## Basic Usage
+When using Whisper models, Voice Activity Detection (VAD) is automatically
+enabled for audio longer than 29 seconds. This happens transparently - you
+don't need to configure anything:
 
 ```{r basic}
 library(sherpa.onnx)
 
-# Create a recognizer with any model
+# Create a recognizer with Whisper
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
 
-# Transcribe a long podcast with VAD enabled
-result <- rec$transcribe("podcast.wav", use_vad = TRUE)
+# Long audio automatically uses VAD
+result <- rec$transcribe("podcast.wav")
 
 # Full text
 print(result$text)
 
-# Individual segments with timing
-for (i in seq_along(result$segments)) {
-  cat(sprintf("[%.1f - %.1f]: %s\n",
-              result$segment_starts[i],
-              result$segment_starts[i] + result$segment_durations[i],
-              result$segments[i]))
+# For long audio, segment information is available
+if (!is.null(result$num_segments)) {
+  cat(sprintf("Transcribed in %d segments\n", result$num_segments))
+
+  # Individual segments with timing
+  for (i in seq_along(result$segments)) {
+    cat(sprintf("[%.1f - %.1f]: %s\n",
+                result$segment_starts[i],
+                result$segment_starts[i] + result$segment_durations[i],
+                result$segments[i]))
+  }
 }
 ```
 
-## Understanding VAD Output
+## Why Automatic VAD?
 
-When using VAD, the transcription result includes additional fields:
+Whisper models have a 30-second context window limit. For longer audio,
+the package automatically:
 
-- `text`: The full transcribed text (all segments joined)
+1. Detects speech segments using the Silero VAD model
+2. Groups segments into batches up to 29 seconds
+3. Transcribes each batch
+4. Combines the results seamlessly
+
+This provides:
+
+- **Better quality**: Segments are created at natural pauses, not mid-word
+- **Reduced memory usage**: Processes audio in manageable chunks
+- **Timing information**: Provides start time and duration for each segment
+
+## Understanding the Output
+
+For short audio (< 29 seconds), you get standard transcription fields:
+
+- `text`: The transcribed text
+- `tokens`: Individual tokens
+- `timestamps`: Token timestamps (if supported)
+
+For long audio with VAD, additional fields are available:
+
 - `segments`: Character vector of individual segment texts
 - `segment_starts`: Start time in seconds for each segment
 - `segment_durations`: Duration in seconds for each segment
-- `num_segments`: Total number of speech segments detected
+- `num_segments`: Total number of batched segments
 
 ```{r output}
-result <- rec$transcribe("interview.wav", use_vad = TRUE)
+result <- rec$transcribe("long_interview.wav")
 
 # View summary with VAD statistics
 summary(result)
 # Shows: segments count, total duration, speech duration, speech ratio
 ```
 
-## Tuning VAD Parameters
+## Standalone VAD Function
 
-The VAD behavior can be tuned with several parameters:
+For fine-grained control over voice activity detection, use the standalone
+`vad()` function:
 
-### vad_threshold (default: 0.5)
+```{r vad-standalone}
+# Detect speech segments without transcription
+segments <- vad("recording.wav")
 
-Speech detection sensitivity. Range: 0-1.
+# View detected segments
+print(segments)
 
-- Lower values = more sensitive (detects quieter speech)
-- Higher values = less sensitive (may miss quiet passages)
+# Get detailed statistics
+summary(segments)
 
-```{r threshold}
-# More sensitive - for quiet speakers
-result <- rec$transcribe("quiet_audio.wav",
-                        use_vad = TRUE,
-                        vad_threshold = 0.3)
-
-# Less sensitive - for noisy environments
-result <- rec$transcribe("noisy_audio.wav",
-                        use_vad = TRUE,
-                        vad_threshold = 0.7)
+# Convert to data frame
+df <- as.data.frame(segments)
+print(df)
 ```
 
-### vad_min_silence (default: 0.5 seconds)
+### Tuning VAD Parameters
 
-Minimum silence duration to trigger a segment split.
+The `vad()` function accepts parameters to tune detection:
 
-- Shorter = more segments (splits on brief pauses)
-- Longer = fewer segments (only splits on longer pauses)
+```{r vad-params}
+# More sensitive detection (for quiet audio)
+segments <- vad("quiet_audio.wav", threshold = 0.3)
 
-```{r silence}
-# More aggressive splitting for fast speakers
-result <- rec$transcribe("fast_speech.wav",
-                        use_vad = TRUE,
-                        vad_min_silence = 0.3)
+# Less sensitive (for noisy environments)
+segments <- vad("noisy_audio.wav", threshold = 0.7)
 
-# Less splitting for natural conversation
-result <- rec$transcribe("conversation.wav",
-                        use_vad = TRUE,
-                        vad_min_silence = 0.8)
+# Shorter minimum silence (more segments)
+segments <- vad("fast_speech.wav", min_silence = 0.3)
+
+# Longer minimum silence (fewer segments)
+segments <- vad("conversation.wav", min_silence = 0.8)
+
+# Filter out very short utterances
+segments <- vad("meeting.wav", min_speech = 0.5)
 ```
 
-### vad_min_speech (default: 0.25 seconds)
+### Manual Transcription of VAD Segments
 
-Minimum speech duration to keep a segment. Segments shorter than this are discarded.
-
-```{r min_speech}
-# Filter out very short utterances (like "um", "uh")
-result <- rec$transcribe("meeting.wav",
-                        use_vad = TRUE,
-                        vad_min_speech = 0.5)
-```
-
-### vad_max_speech (default: 30 seconds)
-
-Maximum speech duration before forcing a segment split. Useful to prevent memory
-issues with very long continuous speech.
-
-```{r max_speech}
-# Force splits for a lecture with few natural pauses
-result <- rec$transcribe("lecture.wav",
-                        use_vad = TRUE,
-                        vad_max_speech = 60.0)
-```
-
-## When to Use VAD
-
-**Recommended for:**
-
-- Audio longer than ~30 seconds
-- Interviews or conversations
-- Podcasts and lectures
-- Audio with natural pauses
-
-**May not be needed for:**
-
-- Short audio clips (< 30 seconds)
-- Continuous speech without pauses
-- When you need token-level timestamps (use model timestamps instead)
-
-## Example: Processing a Meeting Recording
-
-```{r meeting}
+You can manually transcribe VAD segments for full control:
+```{r manual-vad}
 library(sherpa.onnx)
 
+# Create recognizer
+rec <- OfflineRecognizer$new(model = "whisper-tiny")
+
+# Get VAD segments
+segments <- vad("long_recording.wav", verbose = FALSE)
+
+# Transcribe each segment individually
+# (useful if you need per-segment control)
+for (i in seq_len(segments$num_segments)) {
+  seg <- segments$segments[[i]]
+  cat(sprintf("\nSegment %d (%.1f - %.1f sec):\n",
+              i, seg$start_time, seg$start_time + seg$duration))
+
+  # You could transcribe individual segments here
+  # using transcribe_samples_() if needed
+}
+```
+
+## Other Model Types
+
+For non-Whisper models (Parakeet, SenseVoice, etc.), VAD is not automatically
+enabled because these models can handle longer audio natively. The entire
+audio is transcribed at once:
+
+```{r other-models}
+# Parakeet can handle long audio without VAD
 rec <- OfflineRecognizer$new(model = "parakeet-v3")
-
-# Process a 1-hour meeting recording
-result <- rec$transcribe(
-  "meeting_recording.wav",
-  use_vad = TRUE,
-  vad_min_silence = 0.6,  # Split on pauses > 0.6 seconds
-  vad_min_speech = 0.3,   # Keep segments > 0.3 seconds
-  verbose = TRUE          # Show progress
-)
-
-# Get summary statistics
-summary(result)
-
-# Create a simple transcript with timestamps
-transcript <- data.frame(
-  start = result$segment_starts,
-  end = result$segment_starts + result$segment_durations,
-  text = result$segments
-)
-
-# Format timestamps as MM:SS
-transcript$timestamp <- sprintf("%02d:%02d",
-                                floor(transcript$start / 60),
-                                floor(transcript$start %% 60))
-
-print(transcript[, c("timestamp", "text")])
+result <- rec$transcribe("long_audio.wav")  # No VAD, direct transcription
 ```
 
 ## Performance Tips
 
-1. **Use `verbose = FALSE`** in production to skip progress messages
-2. **Adjust `vad_max_speech`** for memory-constrained environments
-3. **The Silero VAD model** is automatically downloaded and cached on first use
-4. **VAD processing** adds minimal overhead compared to transcription time
+1. **Whisper + long audio**: VAD is automatic, no configuration needed
+2. **Short audio**: VAD is skipped automatically (no overhead)
+3. **Non-Whisper models**: Use as-is for long audio
+4. **Custom VAD needs**: Use the standalone `vad()` function
+5. **The Silero VAD model** is automatically downloaded and cached on first use

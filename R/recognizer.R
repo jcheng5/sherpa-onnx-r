@@ -50,6 +50,7 @@ batch_segments <- function(segments, max_duration = 29.0) {
 #' SenseVoice, and Transducer models.
 #'
 #' @importFrom R6 R6Class
+#' @importFrom tibble tibble
 #' @importFrom utils download.file head
 #' @export
 OfflineRecognizer <- R6::R6Class(
@@ -379,7 +380,7 @@ OfflineRecognizer <- R6::R6Class(
       }
 
       # Transcribe all files
-      results <- lapply(wav_paths, function(path) {
+      resultstranscribe(wav_paths, function(path) {
         self$transcribe(path)
       })
 
