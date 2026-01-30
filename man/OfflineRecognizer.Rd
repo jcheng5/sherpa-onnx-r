@@ -41,7 +41,7 @@ result <- rec$transcribe("audio.wav")
 # Print with custom format
 print(result)
 
-# Access fields (backward compatible)
+# Access fields
 cat("Transcription:", result$text, "\n")
 
 # Extract text
@@ -49,12 +49,6 @@ text <- as.character(result)
 
 # Detailed information
 summary(result)
-
-# Long audio with VAD
-result <- rec$transcribe("podcast.wav", use_vad = TRUE)
-print(result)  # Shows full text
-result$segments  # Individual speech segments
-result$segment_starts  # Timing of each segment
 }
 
 ## ------------------------------------------------
@@ -160,16 +154,7 @@ rec <- OfflineRecognizer$new(model = "/path/to/model")
 \subsection{Method \code{transcribe()}}{
 Transcribe a WAV file
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OfflineRecognizer$transcribe(
-  wav_path,
-  use_vad = FALSE,
-  vad_threshold = 0.5,
-  vad_min_silence = 0.5,
-  vad_min_speech = 0.25,
-  vad_max_speech = 29,
-  vad_model = "silero-vad",
-  verbose = TRUE
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{OfflineRecognizer$transcribe(wav_path, verbose = TRUE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -177,42 +162,42 @@ Transcribe a WAV file
 \describe{
 \item{\code{wav_path}}{Path to WAV file (must be 16kHz, 16-bit, mono)}
 
-\item{\code{use_vad}}{Logical. If TRUE, uses Voice Activity Detection to split
-long audio files at natural pauses. Recommended for files longer than
-30 seconds. Default: FALSE (transcribe entire file at once).}
-
-\item{\code{vad_threshold}}{Speech detection threshold (0-1). Lower = more sensitive.
-Default: 0.5}
-
-\item{\code{vad_min_silence}}{Minimum silence duration (seconds) to split segments.
-Default: 0.5}
-
-\item{\code{vad_min_speech}}{Minimum speech duration (seconds) to keep segment.
-Default: 0.25}
-
-\item{\code{vad_max_speech}}{Maximum speech duration (seconds) before force split.
-Default: 30.0. Useful to prevent memory issues with very long speech.}
-
-\item{\code{vad_model}}{VAD model to use. Default: "silero-vad" (auto-downloaded)}
-
 \item{\code{verbose}}{Logical. Show progress messages. Default: TRUE}
 }
 \if{html}{\out{</div>}}
 }
+\subsection{Details}{
+Whisper models have a 30-second context window limit. For audio longer than
+29 seconds, this method automatically uses Voice Activity Detection (VAD)
+to split the audio at natural speech boundaries, transcribes each segment,
+and combines the results. This happens transparently - you don't need to
+configure anything.
+
+For other model types (Parakeet, SenseVoice, etc.), the entire audio is
+transcribed at once regardless of length.
+
+If you need fine-grained control over VAD parameters, use the standalone
+`vad()` function to detect speech segments, then transcribe them individually.
+}
+
 \subsection{Returns}{
 A sherpa_transcription object (list-like) containing:
   - text: Transcribed text
-  - tokens: Character vector of tokens (if not using VAD)
+  - tokens: Character vector of tokens
   - timestamps: Numeric vector of timestamps (if supported by model)
   - durations: Numeric vector of token durations (if supported by model)
   - language: Detected language (if supported by model)
   - emotion: Detected emotion (if supported by model)
   - event: Detected audio event (if supported by model)
-  - json: Full result as JSON string (if not using VAD)
-  - segments: Character vector of segment texts (if VAD used)
-  - segment_starts: Start times of segments in seconds (if VAD used)
-  - segment_durations: Duration of segments in seconds (if VAD used)
-  - num_segments: Number of segments (if VAD used)
+  - json: Full result as JSON string
+
+  For Whisper models with audio longer than 29 seconds, Voice Activity
+  Detection (VAD) is automatically used to segment the audio. In this case,
+  additional fields are available:
+  - segments: Character vector of segment texts
+  - segment_starts: Start times of segments in seconds
+  - segment_durations: Duration of segments in seconds
+  - num_segments: Number of segments
 
   The result has a custom print method but maintains list-like access
   (e.g., `result$text`). Use `as.character(result)` to extract just the
@@ -227,7 +212,7 @@ result <- rec$transcribe("audio.wav")
 # Print with custom format
 print(result)
 
-# Access fields (backward compatible)
+# Access fields
 cat("Transcription:", result$text, "\n")
 
 # Extract text
@@ -235,12 +220,6 @@ text <- as.character(result)
 
 # Detailed information
 summary(result)
-
-# Long audio with VAD
-result <- rec$transcribe("podcast.wav", use_vad = TRUE)
-print(result)  # Shows full text
-result$segments  # Individual speech segments
-result$segment_starts  # Timing of each segment
 }
 }
 \if{html}{\out{</div>}}

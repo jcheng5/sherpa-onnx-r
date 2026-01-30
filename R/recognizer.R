@@ -230,37 +230,43 @@ OfflineRecognizer <- R6::R6Class(
     #' Transcribe a WAV file
     #'
     #' @param wav_path Path to WAV file (must be 16kHz, 16-bit, mono)
-    #' @param use_vad Logical. If TRUE, uses Voice Activity Detection to split
-    #'   long audio files at natural pauses. Recommended for files longer than
-    #'   30 seconds. Default: FALSE (transcribe entire file at once).
-    #' @param vad_threshold Speech detection threshold (0-1). Lower = more sensitive.
-    #'   Default: 0.5
-    #' @param vad_min_silence Minimum silence duration (seconds) to split segments.
-    #'   Default: 0.5
-    #' @param vad_min_speech Minimum speech duration (seconds) to keep segment.
-    #'   Default: 0.25
-    #' @param vad_max_speech Maximum speech duration (seconds) before force split.
-    #'   Default: 30.0. Useful to prevent memory issues with very long speech.
-    #' @param vad_model VAD model to use. Default: "silero-vad" (auto-downloaded)
     #' @param verbose Logical. Show progress messages. Default: TRUE
     #'
     #' @return A sherpa_transcription object (list-like) containing:
     #'   - text: Transcribed text
-    #'   - tokens: Character vector of tokens (if not using VAD)
+    #'   - tokens: Character vector of tokens
     #'   - timestamps: Numeric vector of timestamps (if supported by model)
     #'   - durations: Numeric vector of token durations (if supported by model)
     #'   - language: Detected language (if supported by model)
     #'   - emotion: Detected emotion (if supported by model)
     #'   - event: Detected audio event (if supported by model)
-    #'   - json: Full result as JSON string (if not using VAD)
-    #'   - segments: Character vector of segment texts (if VAD used)
-    #'   - segment_starts: Start times of segments in seconds (if VAD used)
-    #'   - segment_durations: Duration of segments in seconds (if VAD used)
-    #'   - num_segments: Number of segments (if VAD used)
+    #'   - json: Full result as JSON string
+    #'
+    #'   For Whisper models with audio longer than 29 seconds, Voice Activity
+
+    #'   Detection (VAD) is automatically used to segment the audio. In this case,
+    #'   additional fields are available:
+    #'   - segments: Character vector of segment texts
+    #'   - segment_starts: Start times of segments in seconds
+    #'   - segment_durations: Duration of segments in seconds
+    #'   - num_segments: Number of segments
     #'
     #'   The result has a custom print method but maintains list-like access
     #'   (e.g., `result$text`). Use `as.character(result)` to extract just the
     #'   text, or `summary(result)` for detailed statistics.
+    #'
+    #' @details
+    #' Whisper models have a 30-second context window limit. For audio longer than
+    #' 29 seconds, this method automatically uses Voice Activity Detection (VAD)
+    #' to split the audio at natural speech boundaries, transcribes each segment,
+    #' and combines the results. This happens transparently - you don't need to
+    #' configure anything.
+    #'
+    #' For other model types (Parakeet, SenseVoice, etc.), the entire audio is
+    #' transcribed at once regardless of length.
+    #'
+    #' If you need fine-grained control over VAD parameters, use the standalone
+    #' `vad()` function to detect speech segments, then transcribe them individually.
     #'
     #' @examples
     #' \dontrun{
@@ -270,7 +276,7 @@ OfflineRecognizer <- R6::R6Class(
     #' # Print with custom format
     #' print(result)
     #'
-    #' # Access fields (backward compatible)
+    #' # Access fields
     #' cat("Transcription:", result$text, "\n")
     #'
     #' # Extract text
@@ -278,21 +284,8 @@ OfflineRecognizer <- R6::R6Class(
     #'
     #' # Detailed information
     #' summary(result)
-    #'
-    #' # Long audio with VAD
-    #' result <- rec$transcribe("podcast.wav", use_vad = TRUE)
-    #' print(result)  # Shows full text
-    #' result$segments  # Individual speech segments
-    #' result$segment_starts  # Timing of each segment
     #' }
-    transcribe = function(wav_path,
-                         use_vad = FALSE,
-                         vad_threshold = 0.5,
-                         vad_min_silence = 0.5,
-                         vad_min_speech = 0.25,
-                         vad_max_speech = 29.0,
-                         vad_model = "silero-vad",
-                         verbose = TRUE) {
+    transcribe = function(wav_path, verbose = TRUE) {
       # Expand tilde and other path shortcuts
       wav_path <- path.expand(wav_path)
 
@@ -304,36 +297,36 @@ OfflineRecognizer <- R6::R6Class(
         stop("Recognizer not initialized")
       }
 
-      # Validate VAD parameters
-      if (use_vad) {
-        if (vad_threshold < 0 || vad_threshold > 1) {
-          stop("vad_threshold must be between 0 and 1")
-        }
-        if (vad_min_silence < 0) {
-          stop("vad_min_silence must be non-negative")
-        }
-        if (vad_min_speech < 0) {
-          stop("vad_min_speech must be non-negative")
-        }
-        if (vad_max_speech <= 0) {
-          stop("vad_max_speech must be positive")
+      # Check if we need VAD (whisper model + audio > 29s)
+      use_vad <- FALSE
+      model_type <- private$model_info_cache$model_type
+
+      if (model_type == "whisper") {
+        # Read audio to check duration
+        wav_data <- read_wav_(wav_path)
+        duration <- wav_data$num_samples / wav_data$sample_rate
+
+        if (duration > 29.0) {
+          use_vad <- TRUE
+          if (verbose) {
+            message(sprintf("Audio is %.1f seconds; using VAD for Whisper model", duration))
+          }
         }
       }
 
-      # Simple transcription (no VAD)
+      # Simple transcription (no VAD needed)
       if (!use_vad) {
         result <- transcribe_wav_(private$recognizer_ptr, wav_path)
         return(new_sherpa_transcription(result, private$model_info_cache))
       }
 
-      # VAD-based transcription
+      # VAD-based transcription with defaults
       vad_config <- list(
-        model = vad_model,
-        threshold = vad_threshold,
-        min_silence = vad_min_silence,
-        min_speech = vad_min_speech,
-        max_speech = vad_max_speech,
-        window_size = 512L,  # Silero VAD window size
+        model = "silero-vad",
+        threshold = 0.5,
+        min_silence = 0.5,
+        min_speech = 0.25,
+        max_speech = 29.0,
         verbose = verbose
       )
 
