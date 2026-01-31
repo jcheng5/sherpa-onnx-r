@@ -28,17 +28,17 @@ On Linux and Windows, **CUDA support is auto-detected** during installation. If 
 To disable auto-detection and force CPU-only binaries (smaller download):
 
 ```bash
-SHERPA_ONNX_NO_CUDA=1 R CMD INSTALL sherpa.onnx
+SHERPA_ONNX_CUDA=0 R CMD INSTALL sherpa.onnx
 ```
 
 To explicitly enable CUDA or select a specific CUDA version:
 
 ```bash
 # Explicit CUDA 12.x (default when auto-detected)
-SHERPA_ONNX_USE_CUDA=1 R CMD INSTALL sherpa.onnx
+SHERPA_ONNX_CUDA=1 R CMD INSTALL sherpa.onnx
 
 # For CUDA 11.x systems
-SHERPA_ONNX_USE_CUDA=1 SHERPA_ONNX_CUDA_VERSION=cuda-11 R CMD INSTALL sherpa.onnx
+SHERPA_ONNX_CUDA=1 SHERPA_ONNX_CUDA_VERSION=cuda-11 R CMD INSTALL sherpa.onnx
 ```
 
 **Note**: CUDA binaries are ~350 MB (vs ~20 MB for CPU-only). The CUDA-enabled binaries also support CPU inference, so you can use `provider = "cpu"` even with a CUDA installation.

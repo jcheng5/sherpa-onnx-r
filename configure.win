@@ -5,17 +5,18 @@
 #
 # Environment variables:
 #   SHERPA_ONNX_USE_SYSTEM=1  - Use system-installed sherpa-onnx
-#   SHERPA_ONNX_USE_CUDA=1    - Download CUDA-enabled binaries
-#                               Supports both CPU and GPU inference
-#                               Auto-detected if nvidia-smi is available
-#   SHERPA_ONNX_NO_CUDA=1     - Disable CUDA auto-detection, force CPU-only binaries
+#   SHERPA_ONNX_CUDA          - CUDA support: 1=force enable, 0=force disable, unset=auto-detect
+#                               Auto-detect checks for nvidia-smi on Windows x86_64
+#                               CUDA binaries support both CPU and GPU inference
 #   SHERPA_ONNX_CUDA_VERSION  - CUDA version: "cuda-11" or "cuda-12" (default: "cuda-12")
 
 SHERPA_VERSION="v1.12.17"
 
-# Auto-detect CUDA on Windows if not explicitly set
-if [ -z "$SHERPA_ONNX_USE_CUDA" ] && [ -z "$SHERPA_ONNX_NO_CUDA" ]; then
-  # Check common Windows locations for nvidia-smi
+# Auto-detect CUDA if SHERPA_ONNX_CUDA is not set
+if [ -z "$SHERPA_ONNX_CUDA" ]; then
+  # Default to CPU-only
+  SHERPA_ONNX_CUDA=0
+  # Auto-detect CUDA on Windows
   NVIDIA_SMI=""
   if command -v nvidia-smi >/dev/null 2>&1; then
     NVIDIA_SMI="nvidia-smi"
@@ -24,14 +25,31 @@ if [ -z "$SHERPA_ONNX_USE_CUDA" ] && [ -z "$SHERPA_ONNX_NO_CUDA" ]; then
   elif [ -x "/c/Program Files/NVIDIA Corporation/NVSMI/nvidia-smi.exe" ]; then
     NVIDIA_SMI="/c/Program Files/NVIDIA Corporation/NVSMI/nvidia-smi.exe"
   fi
-  
+
   if [ -n "$NVIDIA_SMI" ]; then
     # nvidia-smi exists, check if it actually works (driver loaded)
     if "$NVIDIA_SMI" >/dev/null 2>&1; then
       echo "CUDA auto-detected via nvidia-smi"
-      SHERPA_ONNX_USE_CUDA=1
-      # Default to cuda-12 binaries (forward compatible with newer drivers)
-      SHERPA_ONNX_CUDA_VERSION="${SHERPA_ONNX_CUDA_VERSION:-cuda-12}"
+      SHERPA_ONNX_CUDA=1
+    fi
+  fi
+elif [ "$SHERPA_ONNX_CUDA" != "0" ] && [ "$SHERPA_ONNX_CUDA" != "1" ]; then
+  echo "WARNING: Invalid SHERPA_ONNX_CUDA value: $SHERPA_ONNX_CUDA (expected 1, 0, or unset)"
+  echo "Falling back to auto-detection..."
+  SHERPA_ONNX_CUDA=0
+  NVIDIA_SMI=""
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    NVIDIA_SMI="nvidia-smi"
+  elif [ -x "/c/Windows/System32/nvidia-smi.exe" ]; then
+    NVIDIA_SMI="/c/Windows/System32/nvidia-smi.exe"
+  elif [ -x "/c/Program Files/NVIDIA Corporation/NVSMI/nvidia-smi.exe" ]; then
+    NVIDIA_SMI="/c/Program Files/NVIDIA Corporation/NVSMI/nvidia-smi.exe"
+  fi
+
+  if [ -n "$NVIDIA_SMI" ]; then
+    if "$NVIDIA_SMI" >/dev/null 2>&1; then
+      echo "CUDA auto-detected via nvidia-smi"
+      SHERPA_ONNX_CUDA=1
     fi
   fi
 fi
@@ -54,12 +72,11 @@ if [ "$SHERPA_ONNX_USE_SYSTEM" = "1" ]; then
   PKG_CFLAGS="-I${SHERPA_ONNX_INCLUDE}"
   PKG_LIBS="-L${SHERPA_ONNX_LIB} -lsherpa-onnx-c-api -lsherpa-onnx-core -lkaldi-native-fbank-core -lonnxruntime"
 else
-  # Determine CUDA version if CUDA is requested
-  CUDA_VERSION="${SHERPA_ONNX_CUDA_VERSION:-cuda-12}"
-
   # Select archive based on CUDA setting
-  if [ "$SHERPA_ONNX_USE_CUDA" = "1" ]; then
-    echo "CUDA support requested (${CUDA_VERSION})"
+  if [ "$SHERPA_ONNX_CUDA" = "1" ]; then
+    # CUDA-enabled binaries (supports both CPU and CUDA providers)
+    CUDA_VERSION="${SHERPA_ONNX_CUDA_VERSION:-cuda-12}"
+    echo "CUDA support enabled (${CUDA_VERSION})"
     case "$CUDA_VERSION" in
       cuda-12)
         ARCHIVE="sherpa-onnx-${SHERPA_VERSION}-cuda-12.x-cudnn-9.x-win-x64-cuda.tar.bz2"
@@ -76,6 +93,7 @@ else
     echo "Using CUDA-enabled binaries: $ARCHIVE"
   else
     # CPU-only binaries (smaller download)
+    echo "Using CPU-only binaries"
     ARCHIVE="sherpa-onnx-${SHERPA_VERSION}-win-x64-shared.tar.bz2"
   fi
 
