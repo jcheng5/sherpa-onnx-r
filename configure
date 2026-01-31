@@ -2,8 +2,31 @@
 
 # Configuration script for sherpa.onnx R package
 # Downloads and extracts sherpa-onnx binaries for the current platform
+#
+# Environment variables:
+#   SHERPA_ONNX_USE_SYSTEM=1  - Use system-installed sherpa-onnx via pkg-config
+#   SHERPA_ONNX_USE_CUDA=1    - Download CUDA-enabled binaries (Linux x86_64 only)
+#                               Supports both CPU and GPU inference
+#                               Auto-detected if nvidia-smi is available
+#   SHERPA_ONNX_NO_CUDA=1     - Disable CUDA auto-detection, force CPU-only binaries
+#   SHERPA_ONNX_CUDA_VERSION  - CUDA version: "cuda-11" or "cuda-12" (default: "cuda-12")
 
 set -e
+
+# Auto-detect CUDA on Linux if not explicitly set
+if [ -z "$SHERPA_ONNX_USE_CUDA" ] && [ -z "$SHERPA_ONNX_NO_CUDA" ]; then
+  if [ "$(uname -s)" = "Linux" ] && command -v nvidia-smi >/dev/null 2>&1; then
+    # nvidia-smi exists, check if it actually works (driver loaded)
+    if nvidia-smi >/dev/null 2>&1; then
+      echo "CUDA auto-detected via nvidia-smi"
+      SHERPA_ONNX_USE_CUDA=1
+      # Default to cuda-12 binaries (forward compatible with newer drivers)
+      SHERPA_ONNX_CUDA_VERSION="${SHERPA_ONNX_CUDA_VERSION:-cuda-12}"
+    fi
+  fi
+fi
+
+SHERPA_VERSION="v1.12.17"
 
 echo "Configuring sherpa.onnx R package..."
 
@@ -27,16 +50,23 @@ else
   OS=$(uname -s)
   ARCH=$(uname -m)
 
+  # Determine CUDA version if CUDA is requested
+  CUDA_VERSION="${SHERPA_ONNX_CUDA_VERSION:-cuda-12}"
+
   case "$OS" in
     Darwin)
+      # CUDA not supported on macOS
+      if [ "$SHERPA_ONNX_USE_CUDA" = "1" ]; then
+        echo "WARNING: CUDA is not supported on macOS. Using CPU-only binaries."
+      fi
       # Use architecture-specific (thin) binaries from JNI builds
       # This avoids R's staged install bug with universal binaries
       if [ "$ARCH" = "arm64" ]; then
         PLATFORM="osx-arm64"
-        ARCHIVE="sherpa-onnx-v1.12.17-osx-arm64-jni.tar.bz2"
+        ARCHIVE="sherpa-onnx-${SHERPA_VERSION}-osx-arm64-jni.tar.bz2"
       elif [ "$ARCH" = "x86_64" ]; then
         PLATFORM="osx-x86_64"
-        ARCHIVE="sherpa-onnx-v1.12.17-osx-x86_64-jni.tar.bz2"
+        ARCHIVE="sherpa-onnx-${SHERPA_VERSION}-osx-x86_64-jni.tar.bz2"
       else
         echo "ERROR: Unsupported macOS architecture: $ARCH"
         echo "Set SHERPA_ONNX_USE_SYSTEM=1 to use system sherpa-onnx"
@@ -47,8 +77,29 @@ else
     Linux)
       if [ "$ARCH" = "x86_64" ]; then
         PLATFORM="linux-x64"
-        ARCHIVE="sherpa-onnx-v1.12.17-linux-x64-shared.tar.bz2"
         LIB_EXT="so"
+        
+        if [ "$SHERPA_ONNX_USE_CUDA" = "1" ]; then
+          # CUDA-enabled binaries (supports both CPU and CUDA providers)
+          echo "CUDA support requested (${CUDA_VERSION})"
+          case "$CUDA_VERSION" in
+            cuda-12)
+              ARCHIVE="sherpa-onnx-${SHERPA_VERSION}-cuda-12.x-cudnn-9.x-linux-x64-gpu.tar.bz2"
+              ;;
+            cuda-11)
+              ARCHIVE="sherpa-onnx-${SHERPA_VERSION}-linux-x64-gpu.tar.bz2"
+              ;;
+            *)
+              echo "ERROR: Unknown CUDA version: $CUDA_VERSION"
+              echo "Supported values: cuda-11, cuda-12"
+              exit 1
+              ;;
+          esac
+          echo "Using CUDA-enabled binaries: $ARCHIVE"
+        else
+          # CPU-only binaries (smaller download)
+          ARCHIVE="sherpa-onnx-${SHERPA_VERSION}-linux-x64-shared.tar.bz2"
+        fi
       else
         echo "ERROR: Unsupported architecture: $ARCH"
         echo "Set SHERPA_ONNX_USE_SYSTEM=1 to use system sherpa-onnx"
@@ -63,7 +114,7 @@ else
   esac
 
   # Download
-  URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.17/$ARCHIVE"
+  URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/${SHERPA_VERSION}/$ARCHIVE"
   echo "Downloading sherpa-onnx binaries from $URL"
   echo "This may take a few minutes..."
 

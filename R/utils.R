@@ -115,3 +115,31 @@ clear_cache <- function(confirm = TRUE) {
 
   return(success)
 }
+
+#' Check if CUDA is available
+#'
+#' Checks whether the package was installed with CUDA support and whether
+#' the CUDA provider libraries are present.
+#'
+#' @return Logical indicating if CUDA support is available
+#' @export
+#'
+#' @examples
+#' cuda_available()
+cuda_available <- function() {
+  lib_dir <- system.file("libs", package = "sherpa.onnx")
+  if (lib_dir == "") {
+    return(FALSE)
+  }
+
+  # Check for CUDA provider library
+  cuda_lib <- if (.Platform$OS.type == "windows") {
+    "onnxruntime_providers_cuda.dll"
+  } else if (Sys.info()["sysname"] == "Darwin") {
+    "libonnxruntime_providers_cuda.dylib"
+  } else {
+    "libonnxruntime_providers_cuda.so"
+  }
+
+  file.exists(file.path(lib_dir, cuda_lib))
+}

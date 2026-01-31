@@ -48,7 +48,7 @@ list extract_vad_segments_(
 
   vad_config.sample_rate = sample_rate;
   vad_config.num_threads = 1;
-  vad_config.debug = verbose ? 1 : 0;
+  vad_config.debug = 0;  // Don't print C++ debug output
 
   // Create VAD instance (buffer size = 60 seconds to handle batching)
   const SherpaOnnxVoiceActivityDetector *vad =

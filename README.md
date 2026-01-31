@@ -21,6 +21,42 @@ pak::pak("jcheng5/sherpa-onnx-r")
 
 **Note**: The package downloads OS- and architecture-specific binaries (31-34 MB) during installation.
 
+### CUDA Support (GPU Acceleration)
+
+On Linux and Windows, **CUDA support is auto-detected** during installation. If `nvidia-smi` is found and working, the package automatically downloads CUDA-enabled binaries.
+
+To disable auto-detection and force CPU-only binaries (smaller download):
+
+```bash
+SHERPA_ONNX_NO_CUDA=1 R CMD INSTALL sherpa.onnx
+```
+
+To explicitly enable CUDA or select a specific CUDA version:
+
+```bash
+# Explicit CUDA 12.x (default when auto-detected)
+SHERPA_ONNX_USE_CUDA=1 R CMD INSTALL sherpa.onnx
+
+# For CUDA 11.x systems
+SHERPA_ONNX_USE_CUDA=1 SHERPA_ONNX_CUDA_VERSION=cuda-11 R CMD INSTALL sherpa.onnx
+```
+
+**Note**: CUDA binaries are ~350 MB (vs ~20 MB for CPU-only). The CUDA-enabled binaries also support CPU inference, so you can use `provider = "cpu"` even with a CUDA installation.
+
+To check if CUDA support is available after installation:
+
+```r
+library(sherpa.onnx)
+cuda_available()
+#> [1] TRUE
+```
+
+To use CPU for inference, even if GPU is available:
+
+```r
+rec <- OfflineRecognizer$new(model = "whisper-tiny", provider = "cpu")
+```
+
 ### Using system sherpa-onnx
 
 If you have sherpa-onnx installed on your system, you can try forcing sherpa.onnx to use it (this has not been well tested):

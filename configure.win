@@ -2,6 +2,39 @@
 
 # Configuration script for sherpa.onnx R package on Windows
 # Downloads and extracts sherpa-onnx binaries
+#
+# Environment variables:
+#   SHERPA_ONNX_USE_SYSTEM=1  - Use system-installed sherpa-onnx
+#   SHERPA_ONNX_USE_CUDA=1    - Download CUDA-enabled binaries
+#                               Supports both CPU and GPU inference
+#                               Auto-detected if nvidia-smi is available
+#   SHERPA_ONNX_NO_CUDA=1     - Disable CUDA auto-detection, force CPU-only binaries
+#   SHERPA_ONNX_CUDA_VERSION  - CUDA version: "cuda-11" or "cuda-12" (default: "cuda-12")
+
+SHERPA_VERSION="v1.12.17"
+
+# Auto-detect CUDA on Windows if not explicitly set
+if [ -z "$SHERPA_ONNX_USE_CUDA" ] && [ -z "$SHERPA_ONNX_NO_CUDA" ]; then
+  # Check common Windows locations for nvidia-smi
+  NVIDIA_SMI=""
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    NVIDIA_SMI="nvidia-smi"
+  elif [ -x "/c/Windows/System32/nvidia-smi.exe" ]; then
+    NVIDIA_SMI="/c/Windows/System32/nvidia-smi.exe"
+  elif [ -x "/c/Program Files/NVIDIA Corporation/NVSMI/nvidia-smi.exe" ]; then
+    NVIDIA_SMI="/c/Program Files/NVIDIA Corporation/NVSMI/nvidia-smi.exe"
+  fi
+  
+  if [ -n "$NVIDIA_SMI" ]; then
+    # nvidia-smi exists, check if it actually works (driver loaded)
+    if "$NVIDIA_SMI" >/dev/null 2>&1; then
+      echo "CUDA auto-detected via nvidia-smi"
+      SHERPA_ONNX_USE_CUDA=1
+      # Default to cuda-12 binaries (forward compatible with newer drivers)
+      SHERPA_ONNX_CUDA_VERSION="${SHERPA_ONNX_CUDA_VERSION:-cuda-12}"
+    fi
+  fi
+fi
 
 echo "Configuring sherpa.onnx R package for Windows..."
 
@@ -21,9 +54,32 @@ if [ "$SHERPA_ONNX_USE_SYSTEM" = "1" ]; then
   PKG_CFLAGS="-I${SHERPA_ONNX_INCLUDE}"
   PKG_LIBS="-L${SHERPA_ONNX_LIB} -lsherpa-onnx-c-api -lsherpa-onnx-core -lkaldi-native-fbank-core -lonnxruntime"
 else
-  # Download Windows binaries
-  ARCHIVE="sherpa-onnx-v1.12.17-win-x64-shared.tar.bz2"
-  URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.12.17/$ARCHIVE"
+  # Determine CUDA version if CUDA is requested
+  CUDA_VERSION="${SHERPA_ONNX_CUDA_VERSION:-cuda-12}"
+
+  # Select archive based on CUDA setting
+  if [ "$SHERPA_ONNX_USE_CUDA" = "1" ]; then
+    echo "CUDA support requested (${CUDA_VERSION})"
+    case "$CUDA_VERSION" in
+      cuda-12)
+        ARCHIVE="sherpa-onnx-${SHERPA_VERSION}-cuda-12.x-cudnn-9.x-win-x64-cuda.tar.bz2"
+        ;;
+      cuda-11)
+        ARCHIVE="sherpa-onnx-${SHERPA_VERSION}-win-x64-cuda.tar.bz2"
+        ;;
+      *)
+        echo "ERROR: Unknown CUDA version: $CUDA_VERSION"
+        echo "Supported values: cuda-11, cuda-12"
+        exit 1
+        ;;
+    esac
+    echo "Using CUDA-enabled binaries: $ARCHIVE"
+  else
+    # CPU-only binaries (smaller download)
+    ARCHIVE="sherpa-onnx-${SHERPA_VERSION}-win-x64-shared.tar.bz2"
+  fi
+
+  URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/${SHERPA_VERSION}/$ARCHIVE"
 
   echo "Downloading sherpa-onnx binaries from $URL"
   echo "This may take a few minutes..."

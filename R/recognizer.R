@@ -59,6 +59,9 @@ OfflineRecognizer <- R6::R6Class(
   private = list(
     recognizer_ptr = NULL,
     model_info_cache = NULL,
+    default_verbose = FALSE,
+    num_threads = NULL,
+    provider = NULL,
 
     # Cleanup resources (called automatically on garbage collection)
     finalize = function() {
@@ -153,18 +156,23 @@ OfflineRecognizer <- R6::R6Class(
     #'   Used for Whisper and SenseVoice models.
     #' @param num_threads Number of threads for inference (default: NULL = auto-detect).
     #'   If NULL, uses parallel::detectCores() with a maximum of 4 threads.
-    #' @param provider Execution provider: "cpu", "cuda", or "coreml" (default: "cpu")
-    #' @param verbose Logical, whether to print status messages (default: TRUE)
+    #' @param provider Execution provider: "cpu", "cuda", or "coreml".
+    #'   Default is NULL, which auto-detects: uses "cuda" if available, otherwise "cpu".
+    #' @param verbose Logical, whether to print status messages during initialization (default: FALSE).
+    #'   This also sets the default verbosity for transcribe() calls.
     #'
     #' @return A new OfflineRecognizer object
     #'
     #' @examples
     #' \dontrun{
-    #' # Create recognizer with shorthand (auto-detects threads)
+    #' # Create recognizer with shorthand (auto-detects threads and provider)
     #' rec <- OfflineRecognizer$new(model = "whisper-tiny")
     #'
     #' # Create recognizer with specific thread count
     #' rec <- OfflineRecognizer$new(model = "whisper-tiny", num_threads = 4)
+    #'
+    #' # Force CPU even if CUDA is available
+    #' rec <- OfflineRecognizer$new(model = "whisper-tiny", provider = "cpu")
     #'
     #' # Create recognizer with HuggingFace repo
     #' rec <- OfflineRecognizer$new(
@@ -177,8 +185,22 @@ OfflineRecognizer <- R6::R6Class(
     initialize = function(model = "parakeet-v3",
                          language = "auto",
                          num_threads = NULL,
-                         provider = "cpu",
-                         verbose = TRUE) {
+                         provider = NULL,
+                         verbose = FALSE) {
+
+      # Store default verbosity for transcribe() calls
+      private$default_verbose <- verbose
+
+      # Auto-detect provider if not specified
+      if (is.null(provider)) {
+        if (cuda_available()) {
+          provider <- "cuda"
+          if (verbose) message("CUDA available, using GPU acceleration")
+        } else {
+          provider <- "cpu"
+        }
+      }
+      private$provider <- provider
 
       # Auto-detect optimal thread count if not specified
       if (is.null(num_threads)) {
@@ -190,6 +212,7 @@ OfflineRecognizer <- R6::R6Class(
                          available_cores, num_threads))
         }
       }
+      private$num_threads <- num_threads
 
       # Resolve model
       model_info <- resolve_model(model, verbose = verbose)
@@ -232,7 +255,7 @@ OfflineRecognizer <- R6::R6Class(
     #' Transcribe a WAV file
     #'
     #' @param wav_path Path to WAV file (must be 16kHz, 16-bit, mono)
-    #' @param verbose Logical. Show progress messages. Default: TRUE
+    #' @param verbose Logical. Show progress messages. Default: NULL (inherits from initialize())
     #'
     #' @return A sherpa_transcription object (list-like) containing:
     #'   - text: Transcribed text
@@ -287,7 +310,12 @@ OfflineRecognizer <- R6::R6Class(
     #' # Detailed information
     #' summary(result)
     #' }
-    transcribe = function(wav_path, verbose = TRUE) {
+    transcribe = function(wav_path, verbose = NULL) {
+      # Use default verbosity if not specified
+      if (is.null(verbose)) {
+        verbose <- private$default_verbose
+      }
+
       # Expand tilde and other path shortcuts
       wav_path <- path.expand(wav_path)
 
@@ -421,6 +449,57 @@ OfflineRecognizer <- R6::R6Class(
     #' }
     model_info = function() {
       private$model_info_cache
+    },
+
+    #' @description
+    #' Print method for OfflineRecognizer
+    #'
+    #' @param ... Additional arguments (unused)
+    #'
+    #' @examples
+    #' \dontrun{
+    #' rec <- OfflineRecognizer$new(model = "whisper-tiny")
+    #' print(rec)
+    #' }
+    print = function(...) {
+      info <- private$model_info_cache
+      
+      cat("<OfflineRecognizer>\n")
+      
+      # Model information
+      if (info$type == "huggingface") {
+        cat(sprintf("  Model: %s\n", info$repo))
+      } else {
+        # For local paths, try to extract a meaningful name
+        model_name <- basename(info$path)
+        
+        # If it looks like a HF cache path (hash), try to get the repo name from parent
+        if (grepl("^[a-f0-9]{40}$", model_name)) {
+          # Extract from path like models--user--repo/snapshots/hash
+          if (grepl("models--", info$path)) {
+            parts <- strsplit(info$path, "/")[[1]]
+            models_idx <- which(grepl("^models--", parts))
+            if (length(models_idx) > 0) {
+              # Convert "models--csukuangfj--sherpa-onnx-whisper-tiny.en" to readable format
+              repo_part <- parts[models_idx[1]]
+              model_name <- gsub("^models--", "", repo_part)
+              model_name <- gsub("--", "/", model_name)
+            }
+          }
+        }
+        
+        cat(sprintf("  Model: %s (local)\n", model_name))
+      }
+      cat(sprintf("  Type: %s\n", info$model_type))
+      
+      # Provider and threads
+      cat(sprintf("  Provider: %s\n", private$provider))
+      cat(sprintf("  Threads: %d\n", private$num_threads))
+      
+      # Verbose setting
+      cat(sprintf("  Verbose: %s\n", private$default_verbose))
+      
+      invisible(self)
     }
   )
 )

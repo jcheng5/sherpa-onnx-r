@@ -15,11 +15,14 @@ SenseVoice, and Transducer models.
 ## ------------------------------------------------
 
 \dontrun{
-# Create recognizer with shorthand (auto-detects threads)
+# Create recognizer with shorthand (auto-detects threads and provider)
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
 
 # Create recognizer with specific thread count
 rec <- OfflineRecognizer$new(model = "whisper-tiny", num_threads = 4)
+
+# Force CPU even if CUDA is available
+rec <- OfflineRecognizer$new(model = "whisper-tiny", provider = "cpu")
 
 # Create recognizer with HuggingFace repo
 rec <- OfflineRecognizer$new(
@@ -76,6 +79,15 @@ rec <- OfflineRecognizer$new(model = "whisper-tiny")
 info <- rec$model_info()
 print(info)
 }
+
+## ------------------------------------------------
+## Method `OfflineRecognizer$print`
+## ------------------------------------------------
+
+\dontrun{
+rec <- OfflineRecognizer$new(model = "whisper-tiny")
+print(rec)
+}
 }
 \section{Methods}{
 \subsection{Public methods}{
@@ -84,6 +96,7 @@ print(info)
 \item \href{#method-OfflineRecognizer-transcribe}{\code{OfflineRecognizer$transcribe()}}
 \item \href{#method-OfflineRecognizer-transcribe_batch}{\code{OfflineRecognizer$transcribe_batch()}}
 \item \href{#method-OfflineRecognizer-model_info}{\code{OfflineRecognizer$model_info()}}
+\item \href{#method-OfflineRecognizer-print}{\code{OfflineRecognizer$print()}}
 \item \href{#method-OfflineRecognizer-clone}{\code{OfflineRecognizer$clone()}}
 }
 }
@@ -97,8 +110,8 @@ Create a new offline recognizer
   model = "parakeet-v3",
   language = "auto",
   num_threads = NULL,
-  provider = "cpu",
-  verbose = TRUE
+  provider = NULL,
+  verbose = FALSE
 )}\if{html}{\out{</div>}}
 }
 
@@ -116,9 +129,11 @@ Used for Whisper and SenseVoice models.}
 \item{\code{num_threads}}{Number of threads for inference (default: NULL = auto-detect).
 If NULL, uses parallel::detectCores() with a maximum of 4 threads.}
 
-\item{\code{provider}}{Execution provider: "cpu", "cuda", or "coreml" (default: "cpu")}
+\item{\code{provider}}{Execution provider: "cpu", "cuda", or "coreml".
+Default is NULL, which auto-detects: uses "cuda" if available, otherwise "cpu".}
 
-\item{\code{verbose}}{Logical, whether to print status messages (default: TRUE)}
+\item{\code{verbose}}{Logical, whether to print status messages during initialization (default: FALSE).
+This also sets the default verbosity for transcribe() calls.}
 }
 \if{html}{\out{</div>}}
 }
@@ -128,11 +143,14 @@ A new OfflineRecognizer object
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{\dontrun{
-# Create recognizer with shorthand (auto-detects threads)
+# Create recognizer with shorthand (auto-detects threads and provider)
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
 
 # Create recognizer with specific thread count
 rec <- OfflineRecognizer$new(model = "whisper-tiny", num_threads = 4)
+
+# Force CPU even if CUDA is available
+rec <- OfflineRecognizer$new(model = "whisper-tiny", provider = "cpu")
 
 # Create recognizer with HuggingFace repo
 rec <- OfflineRecognizer$new(
@@ -154,7 +172,7 @@ rec <- OfflineRecognizer$new(model = "/path/to/model")
 \subsection{Method \code{transcribe()}}{
 Transcribe a WAV file
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OfflineRecognizer$transcribe(wav_path, verbose = TRUE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{OfflineRecognizer$transcribe(wav_path, verbose = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -162,7 +180,7 @@ Transcribe a WAV file
 \describe{
 \item{\code{wav_path}}{Path to WAV file (must be 16kHz, 16-bit, mono)}
 
-\item{\code{verbose}}{Logical. Show progress messages. Default: TRUE}
+\item{\code{verbose}}{Logical. Show progress messages. Default: NULL (inherits from initialize())}
 }
 \if{html}{\out{</div>}}
 }
@@ -296,6 +314,34 @@ List with model metadata including:
 rec <- OfflineRecognizer$new(model = "whisper-tiny")
 info <- rec$model_info()
 print(info)
+}
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-OfflineRecognizer-print"></a>}}
+\if{latex}{\out{\hypertarget{method-OfflineRecognizer-print}{}}}
+\subsection{Method \code{print()}}{
+Print method for OfflineRecognizer
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{OfflineRecognizer$print(...)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Additional arguments (unused)}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{\dontrun{
+rec <- OfflineRecognizer$new(model = "whisper-tiny")
+print(rec)
 }
 }
 \if{html}{\out{</div>}}
