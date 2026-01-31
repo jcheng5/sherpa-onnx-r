@@ -12,20 +12,31 @@ SHORTHAND_MODELS <- list(
   "parakeet-110m" = "csukuangfj/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000",
 
   # Whisper models (English-only)
-
-  "whisper-tiny" = "csukuangfj/sherpa-onnx-whisper-tiny.en",
-  "whisper-base" = "csukuangfj/sherpa-onnx-whisper-base.en",
-  "whisper-small" = "csukuangfj/sherpa-onnx-whisper-small.en",
-  "whisper-medium" = "csukuangfj/sherpa-onnx-whisper-medium.en",
+  "whisper-tiny.en" = "csukuangfj/sherpa-onnx-whisper-tiny.en",
+  "whisper-base.en" = "csukuangfj/sherpa-onnx-whisper-base.en",
+  "whisper-small.en" = "csukuangfj/sherpa-onnx-whisper-small.en",
+  "whisper-medium.en" = "csukuangfj/sherpa-onnx-whisper-medium.en",
 
   # Whisper models (Multilingual)
-  "whisper-tiny-multilingual" = "csukuangfj/sherpa-onnx-whisper-tiny",
-  "whisper-base-multilingual" = "csukuangfj/sherpa-onnx-whisper-base",
-  "whisper-medium-multilingual" = "csukuangfj/sherpa-onnx-whisper-medium",
+  "whisper-tiny" = "csukuangfj/sherpa-onnx-whisper-tiny",
+  "whisper-base" = "csukuangfj/sherpa-onnx-whisper-base",
+  "whisper-small" = "csukuangfj/sherpa-onnx-whisper-small",
+  "whisper-medium" = "csukuangfj/sherpa-onnx-whisper-medium",
+  "whisper-large" = "csukuangfj/sherpa-onnx-whisper-large-v3",
+  "whisper-large-v1" = "csukuangfj/sherpa-onnx-whisper-large-v1",
+  "whisper-large-v2" = "csukuangfj/sherpa-onnx-whisper-large-v2",
+  "whisper-large-v3" = "csukuangfj/sherpa-onnx-whisper-large-v3",
+  "whisper-turbo" = "csukuangfj/sherpa-onnx-whisper-turbo",
+  "whisper-medium.en-aishell1" = "csukuangfj/sherpa-onnx-whisper-medium.en-aishell1",
 
-  # Whisper distilled models (English-only, faster)
-  "whisper-distil-small" = "csukuangfj/sherpa-onnx-whisper-distil-small.en",
-  "whisper-distil-medium" = "csukuangfj/sherpa-onnx-whisper-distil-medium.en",
+  # Whisper distilled models (English-only)
+  "whisper-distil-small.en" = "csukuangfj/sherpa-onnx-whisper-distil-small.en",
+  "whisper-distil-medium.en" = "csukuangfj/sherpa-onnx-whisper-distil-medium.en",
+
+  # Whisper distilled models (Multilingual)
+  "whisper-distil-large-v2" = "csukuangfj/sherpa-onnx-whisper-distil-large-v2",
+  "whisper-distil-large-v3" = "csukuangfj/sherpa-onnx-whisper-distil-large-v3",
+  "whisper-distil-large-v3.5" = "csukuangfj/sherpa-onnx-whisper-distil-large-v3.5",
 
   # SenseVoice (Multilingual: Chinese, English, Japanese, Korean, Cantonese)
   "sense-voice" = "csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17",
@@ -84,17 +95,30 @@ download_vad_model <- function(vad_model = "silero-vad", verbose = TRUE) {
 #' Resolve model specification to local path
 #'
 #' @param model Model specification (shorthand, HF repo, or local path)
+#'   Supports suffix notation for quantization: "model-name:int8", "model-name:fp16", etc.
 #' @param verbose Logical, whether to print messages
-#' @return List with type, path, and model_type
+#' @return List with type, path, model_type, and quantization
 #' @noRd
 resolve_model <- function(model = "parakeet-v3", verbose = TRUE) {
+  # Parse quantization suffix (e.g., "whisper-tiny.en:int8")
+  quantization <- NULL
+  if (grepl(":([a-z0-9]+)$", model)) {
+    parts <- strsplit(model, ":")[[1]]
+    if (length(parts) == 2) {
+      quantization <- parts[2]
+      model <- parts[1]
+      if (verbose) message("Preferring quantized model version: ", quantization)
+    }
+  }
+
   # 1. Check if it's a local path
   if (dir.exists(model)) {
     if (verbose) message("Using local model at: ", model)
     return(list(
       type = "local",
       path = normalizePath(model, mustWork = TRUE),
-      model_type = detect_model_type(model)
+      model_type = detect_model_type(model),
+      quantization = quantization
     ))
   }
 
@@ -109,7 +133,8 @@ resolve_model <- function(model = "parakeet-v3", verbose = TRUE) {
     if (is.null(hf_repo)) {
       stop(
         "Unknown model shorthand: ", model,
-        "\nAvailable: ", paste(names(SHORTHAND_MODELS), collapse = ", ")
+        "\nAvailable: ", paste(names(SHORTHAND_MODELS), collapse = ", "),
+        "\nTip: Add :int8 suffix for quantized versions"
       )
     }
     if (verbose) message("Using model: ", model, " (", hf_repo, ")")
@@ -122,7 +147,8 @@ resolve_model <- function(model = "parakeet-v3", verbose = TRUE) {
     type = "huggingface",
     repo = hf_repo,
     path = model_path,
-    model_type = detect_model_type(model_path)
+    model_type = detect_model_type(model_path),
+    quantization = quantization
   )
 
   # Store shorthand name for display purposes
@@ -177,23 +203,32 @@ download_hf_model <- function(repo, verbose = TRUE) {
 #' Handles custom naming like "tiny.en-encoder.onnx" or "encoder.int8.onnx".
 #'
 #' @param model_dir Path to model directory
+#' @param quantization Character string specifying quantization type (e.g., "int8", "fp16"), or NULL
 #' @return Named list with actual filenames, or NULL for missing files
 #' @noRd
-guess_model_files <- function(model_dir) {
+guess_model_files <- function(model_dir, quantization = NULL) {
   files <- list.files(model_dir)
 
   # Helper to find best candidate for a given pattern
-  # Prefer non-int8 versions if available
   find_best_file <- function(pattern) {
     candidates <- grep(pattern, files, value = TRUE)
     if (length(candidates) == 0) return(NULL)
 
-    # Prefer non-int8 versions
-    non_int8 <- candidates[!grepl("int8", candidates)]
-    if (length(non_int8) > 0) {
-      return(non_int8[1])
+    # If quantization requested, try to find matching quantized version
+    if (!is.null(quantization)) {
+      quantized <- candidates[grepl(quantization, candidates, fixed = TRUE)]
+      if (length(quantized) > 0) {
+        return(quantized[1])
+      }
     }
 
+    # Prefer non-quantized versions (no int8, fp16, etc. in filename)
+    non_quantized <- candidates[!grepl("int8|int4|fp16|fp8", candidates)]
+    if (length(non_quantized) > 0) {
+      return(non_quantized[1])
+    }
+
+    # Fallback to whatever is available
     return(candidates[1])
   }
 
@@ -274,6 +309,7 @@ get_cache_dir <- function() {
 get_model_config <- function(model_info) {
   model_type <- model_info$model_type
   model_dir <- model_info$path
+  quantization <- model_info$quantization
 
   config <- list(
     model_dir = model_dir,
@@ -281,7 +317,7 @@ get_model_config <- function(model_info) {
   )
 
   # Get guessed filenames from directory
-  model_files <- guess_model_files(model_dir)
+  model_files <- guess_model_files(model_dir, quantization = quantization)
 
   # Model-specific file paths (use full paths)
   if (model_type == "whisper") {

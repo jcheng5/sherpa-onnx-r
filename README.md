@@ -54,7 +54,7 @@ cuda_available()
 To use CPU for inference, even if GPU is available:
 
 ```r
-rec <- OfflineRecognizer$new(model = "whisper-tiny", provider = "cpu")
+rec <- OfflineRecognizer$new(model = "whisper-tiny.en", provider = "cpu")
 ```
 
 ### Using system sherpa-onnx
@@ -73,7 +73,7 @@ withr::with_envvar(list(SHERPA_ONNX_USE_SYSTEM="1"),
 library(sherpa.onnx)
 
 # Create a recognizer (downloads model on first use)
-rec <- OfflineRecognizer$new(model = "whisper-tiny")
+rec <- OfflineRecognizer$new(model = "whisper-tiny.en")
 
 # Transcribe a single file
 result <- rec$transcribe("audio.wav")
@@ -92,7 +92,7 @@ There are three ways to specify a model:
 
 ```r
 # 1. Use a shorthand for popular models (easiest)
-rec <- OfflineRecognizer$new(model = "whisper-tiny")
+rec <- OfflineRecognizer$new(model = "whisper-tiny.en")
 
 # 2. Use a full HuggingFace repository path
 rec <- OfflineRecognizer$new(
@@ -112,6 +112,27 @@ available_models()
 #> [1] "parakeet-v3" "parakeet-110m" "whisper-tiny" "whisper-base" ...
 ```
 
+#### Quantized Models
+
+Many models include **int8 quantized versions** that are smaller with minimal accuracy loss. Use the `:int8` suffix to prefer quantized versions:
+
+```r
+# Use int8 quantized version (smaller size)
+rec <- OfflineRecognizer$new(model = "whisper-base.en:int8")
+
+# Regular (non-quantized) version
+rec <- OfflineRecognizer$new(model = "whisper-base.en")
+```
+
+**Benefits of quantized models:**
+- 2-4x smaller file size (great for deployment/distribution)
+- Reduced memory usage
+- ~1-2% accuracy trade-off
+
+**Performance note**: Quantized models may be faster or slower than non-quantized versions depending on your hardware and inference provider. Some backends don't have optimized int8 kernels. **Benchmark both versions** to determine which is faster for your use case.
+
+**Tip**: If a quantized version doesn't exist for a model, the regular version will be used automatically.
+
 #### Parakeet Models (NeMo Transducer, English)
 
 | Shorthand | HuggingFace Repo | Size | Speed | Notes |
@@ -121,27 +142,43 @@ available_models()
 
 #### Whisper Models (English-only)
 
+All English-only models are optimized for English speech and use the `.en` suffix.
+
 | Shorthand | HuggingFace Repo | Size | Speed | Notes |
 |-----------|------------------|------|-------|-------|
-| `whisper-tiny` | `csukuangfj/sherpa-onnx-whisper-tiny.en` | 257 MB | 0.3s | Fastest, good accuracy |
-| `whisper-base` | `csukuangfj/sherpa-onnx-whisper-base.en` | ~500 MB | 0.5s | Balanced |
-| `whisper-small` | `csukuangfj/sherpa-onnx-whisper-small.en` | 1.34 GB | 1.8s | Better accuracy |
-| `whisper-medium` | `csukuangfj/sherpa-onnx-whisper-medium.en` | ~3 GB | 5.8s | High accuracy |
+| `whisper-tiny.en` | `csukuangfj/sherpa-onnx-whisper-tiny.en` | ~75 MB | Fast | Fastest, good for real-time |
+| `whisper-base.en` | `csukuangfj/sherpa-onnx-whisper-base.en` | ~140 MB | Fast | Balanced speed/accuracy |
+| `whisper-small.en` | `csukuangfj/sherpa-onnx-whisper-small.en` | ~465 MB | Medium | Better accuracy |
+| `whisper-medium.en` | `csukuangfj/sherpa-onnx-whisper-medium.en` | ~1.5 GB | Slower | High accuracy |
 
 #### Whisper Models (Multilingual)
 
-| Shorthand | HuggingFace Repo | Speed | Notes |
-|-----------|------------------|-------|-------|
-| `whisper-tiny-multilingual` | `csukuangfj/sherpa-onnx-whisper-tiny` | 0.3s | 99 languages, fastest |
-| `whisper-base-multilingual` | `csukuangfj/sherpa-onnx-whisper-base` | 0.5s | 99 languages |
-| `whisper-medium-multilingual` | `csukuangfj/sherpa-onnx-whisper-medium` | 5.9s | 99 languages, better accuracy |
+All multilingual models support 99 languages.
 
-#### Whisper Distilled Models (English-only, faster)
+| Shorthand | HuggingFace Repo | Size | Notes |
+|-----------|------------------|------|-------|
+| `whisper-tiny` | `csukuangfj/sherpa-onnx-whisper-tiny` | ~75 MB | Fastest multilingual |
+| `whisper-base` | `csukuangfj/sherpa-onnx-whisper-base` | ~140 MB | Balanced |
+| `whisper-small` | `csukuangfj/sherpa-onnx-whisper-small` | ~465 MB | Better accuracy |
+| `whisper-medium` | `csukuangfj/sherpa-onnx-whisper-medium` | ~1.5 GB | High accuracy |
+| `whisper-large` | `csukuangfj/sherpa-onnx-whisper-large-v3` | ~3 GB | Best accuracy (v3) |
+| `whisper-large-v1` | `csukuangfj/sherpa-onnx-whisper-large-v1` | ~3 GB | Large v1 |
+| `whisper-large-v2` | `csukuangfj/sherpa-onnx-whisper-large-v2` | ~3 GB | Large v2 |
+| `whisper-large-v3` | `csukuangfj/sherpa-onnx-whisper-large-v3` | ~3 GB | Large v3 (latest) |
+| `whisper-turbo` | `csukuangfj/sherpa-onnx-whisper-turbo` | ~800 MB | 8x faster than large, similar quality |
+| `whisper-medium.en-aishell1` | `csukuangfj/sherpa-onnx-whisper-medium.en-aishell1` | ~1.5 GB | Fine-tuned for Chinese (Mandarin) |
 
-| Shorthand | HuggingFace Repo | Speed | Notes |
-|-----------|------------------|-------|-------|
-| `whisper-distil-small` | `csukuangfj/sherpa-onnx-whisper-distil-small.en` | 1.15s | Faster than small, similar accuracy |
-| `whisper-distil-medium` | `csukuangfj/sherpa-onnx-whisper-distil-medium.en` | 2.7s | Faster than medium, similar accuracy |
+#### Whisper Distilled Models
+
+Distilled models are faster with similar accuracy to their base versions.
+
+| Shorthand | HuggingFace Repo | Languages | Notes |
+|-----------|------------------|-----------|-------|
+| `whisper-distil-small.en` | `csukuangfj/sherpa-onnx-whisper-distil-small.en` | English | Faster than small.en |
+| `whisper-distil-medium.en` | `csukuangfj/sherpa-onnx-whisper-distil-medium.en` | English | Faster than medium.en |
+| `whisper-distil-large-v2` | `csukuangfj/sherpa-onnx-whisper-distil-large-v2` | Multilingual | Faster than large-v2 |
+| `whisper-distil-large-v3` | `csukuangfj/sherpa-onnx-whisper-distil-large-v3` | Multilingual | Faster than large-v3 |
+| `whisper-distil-large-v3.5` | `csukuangfj/sherpa-onnx-whisper-distil-large-v3.5` | Multilingual | Latest distilled, fastest large variant |
 
 #### SenseVoice (Multilingual with Special Features)
 
@@ -157,7 +194,7 @@ available_models()
 - Detects audio events: applause, laughter, music
 - Excellent for code-switching (mixed languages)
 
-**Speed benchmarks** are for ~13 second audio on Apple M-series (varies by hardware). Multilingual Whisper models require `language = "en"` parameter.
+**Note**: Multilingual Whisper models should specify the language parameter for best results, e.g., `language = "en"` for English audio.
 
 ### Transcribing Audio
 
@@ -200,7 +237,7 @@ info$path        # Local path to model files
 ```r
 # Create recognizer with custom settings
 rec <- OfflineRecognizer$new(
-  model = "whisper-base",
+  model = "whisper-base.en",
   language = "en",      # Language hint for multilingual models
   num_threads = 4,      # Number of CPU threads
   provider = "cpu"      # or "cuda", "coreml"
@@ -246,22 +283,26 @@ Sys.setenv(SHERPA_ONNX_CACHE_DIR = "/custom/cache/path")
 
 **Speed priority (English):**
 - `parakeet-110m` - 6x faster than parakeet-v3, great for edge devices
-- `whisper-tiny` - Fast Whisper variant
+- `whisper-tiny.en` - Fast Whisper variant
 
 **Accuracy priority (English):**
-- `whisper-medium` - Highest tested accuracy
-- `whisper-small` - Good balance of accuracy and speed
+- `whisper-medium.en` - High accuracy
+- `whisper-small.en` - Good balance of accuracy and speed
 
 **Multilingual:**
 - `sense-voice` - Best for Chinese/Japanese/Korean/Cantonese + emotion detection
-- `whisper-medium-multilingual` - 99 languages supported
+- `whisper-large-v3` - Best accuracy, 99 languages
+- `whisper-turbo` - Fast multilingual, 8x faster than large
+- `whisper-medium` - Balanced multilingual option
 
 **Special features:**
 - `sense-voice` - Only model with emotion detection and audio event classification
 
-**Edge devices / Low memory:**
-- `parakeet-110m` - Only 478 MB, very fast
-- `whisper-tiny` - Only 257 MB
+**Edge devices / Low memory / Small downloads:**
+- `parakeet-110m` - Only 478 MB, very fast (English)
+- `whisper-tiny.en:int8` - ~39 MB quantized (English, smallest)
+- `whisper-tiny:int8` - ~39 MB quantized (Multilingual, smallest)
+- Any model with `:int8` suffix for 2-4x smaller file size
 
 ### Model Architectures
 
@@ -278,9 +319,20 @@ The package supports three main architectures:
 ```r
 library(sherpa.onnx)
 
-rec <- OfflineRecognizer$new(model = "whisper-tiny")
+rec <- OfflineRecognizer$new(model = "whisper-tiny.en")
 result <- rec$transcribe("test.wav")
 cat(result$text)
+```
+
+### Using Quantized Models for Smaller Size
+
+```r
+# Quantized models are smaller (may or may not be faster)
+rec <- OfflineRecognizer$new(model = "whisper-small.en:int8")
+result <- rec$transcribe("audio.wav")
+cat(result$text)
+
+# Particularly useful for deployment where file size matters
 ```
 
 ### Multilingual Transcription with Emotion Detection
@@ -303,7 +355,7 @@ cat("Emotion:", result$emotion, "\n")        # e.g., "<|NEUTRAL|>"
 wav_files <- list.files("audio/", pattern = "\\.wav$", full.names = TRUE)
 
 # Transcribe all files
-rec <- OfflineRecognizer$new(model = "whisper-base")
+rec <- OfflineRecognizer$new(model = "whisper-base.en")
 results <- rec$transcribe_batch(wav_files)
 
 # Save results to a data frame
@@ -321,6 +373,7 @@ transcriptions <- data.frame(
 2. **Use multiple threads**: Set `num_threads` to match your CPU cores
 3. **Batch processing**: Use `transcribe_batch()` for multiple files
 4. **GPU acceleration**: Use `provider = "cuda"` if you have CUDA available
+5. **Quantized models**: Use `:int8` suffix for smaller downloads/memory, but benchmark speed as it varies by hardware
 
 ## Troubleshooting
 
@@ -348,7 +401,7 @@ If model downloads fail:
 
 ```r
 # Try downloading manually
-model_info <- resolve_model("whisper-tiny")
+model_info <- resolve_model("whisper-tiny.en")
 model_info$path  # Check where model should be
 
 # Clear cache and retry

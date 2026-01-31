@@ -210,3 +210,57 @@ test_that("read_wav fails with missing file", {
     "WAV file not found"
   )
 })
+
+test_that("OfflineRecognizer print shows quantization", {
+  skip_on_cran()
+
+  # Create recognizer with quantization suffix
+  rec <- OfflineRecognizer$new(model = "whisper-tiny.en:int8", verbose = FALSE)
+
+  # Capture print output
+  output <- capture.output(print(rec))
+  output_text <- paste(output, collapse = "\n")
+
+  # Should show (int8) in model line
+  expect_match(output_text, "\\(int8\\)")
+
+  # Should show OfflineRecognizer header
+  expect_match(output_text, "<OfflineRecognizer>")
+})
+
+test_that("OfflineRecognizer print doesn't show quantization when not used", {
+  skip_on_cran()
+
+  # Create recognizer without quantization
+  rec <- OfflineRecognizer$new(model = "whisper-tiny.en", verbose = FALSE)
+
+  # Capture print output
+  output <- capture.output(print(rec))
+  output_text <- paste(output, collapse = "\n")
+
+  # Should NOT show (int8) in model line
+  expect_false(grepl("\\(int8\\)", output_text))
+
+  # Should show OfflineRecognizer header
+  expect_match(output_text, "<OfflineRecognizer>")
+})
+
+test_that("OfflineRecognizer model_info contains quantization field", {
+  skip_on_cran()
+
+  # Create recognizer with quantization
+  rec <- OfflineRecognizer$new(model = "whisper-tiny.en:int8", verbose = FALSE)
+  info <- rec$model_info()
+
+  expect_type(info, "list")
+  expect_true("quantization" %in% names(info))
+  expect_equal(info$quantization, "int8")
+
+  # Create recognizer without quantization
+  rec2 <- OfflineRecognizer$new(model = "whisper-tiny.en", verbose = FALSE)
+  info2 <- rec2$model_info()
+
+  expect_type(info2, "list")
+  expect_true("quantization" %in% names(info2))
+  expect_null(info2$quantization)
+})

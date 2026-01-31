@@ -24,36 +24,51 @@ R CMD INSTALL sherpa.onnx_0.1.0.tar.gz
 library(sherpa.onnx)
 
 # Create recognizer (downloads model automatically)
-rec <- OfflineRecognizer$new(model = "whisper-tiny")
+rec <- OfflineRecognizer$new(model = "whisper-tiny.en")
+
+# Use int8 quantized version (smaller size)
+rec <- OfflineRecognizer$new(model = "whisper-tiny.en:int8")
 
 # Transcribe audio
 result <- rec$transcribe("test.wav")
 cat(result$text)
 ```
 
-**Available model shorthands** (all tested and working):
+**Available model shorthands** (complete list from sherpa-onnx):
 
 Parakeet (NeMo, English):
-- `parakeet-v3` - 600M model, production default (671 MB, 0.9s)
-- `parakeet-110m` - Smaller/faster model (478 MB, 0.15s)
+- `parakeet-v3` - 600M model, production default (671 MB)
+- `parakeet-110m` - Smaller/faster model (478 MB)
 
-Whisper (English-only):
-- `whisper-tiny` - Fastest (257 MB, 0.3s)
-- `whisper-base` - Balanced (500 MB, 0.5s)
-- `whisper-small` - Better accuracy (1.34 GB, 1.8s)
-- `whisper-medium` - High accuracy (3 GB, 5.8s)
+Whisper (English-only, `.en` suffix):
+- `whisper-tiny.en` - Fastest (~75 MB)
+- `whisper-base.en` - Balanced (~140 MB)
+- `whisper-small.en` - Better accuracy (~465 MB)
+- `whisper-medium.en` - High accuracy (~1.5 GB)
 
 Whisper (Multilingual, 99 languages):
-- `whisper-tiny-multilingual` - Fastest multilingual
-- `whisper-base-multilingual` - Balanced multilingual
-- `whisper-medium-multilingual` - Best accuracy multilingual
+- `whisper-tiny` - Fastest multilingual (~75 MB)
+- `whisper-base` - Balanced (~140 MB)
+- `whisper-small` - Better accuracy (~465 MB)
+- `whisper-medium` - High accuracy (~1.5 GB)
+- `whisper-large` - Best accuracy, alias for v3 (~3 GB)
+- `whisper-large-v1` - Large v1 (~3 GB)
+- `whisper-large-v2` - Large v2 (~3 GB)
+- `whisper-large-v3` - Large v3, latest (~3 GB)
+- `whisper-turbo` - 8x faster than large (~800 MB)
+- `whisper-medium.en-aishell1` - Chinese Mandarin fine-tuned (~1.5 GB)
 
 Whisper Distilled (English-only, faster):
-- `whisper-distil-small` - Faster than small
-- `whisper-distil-medium` - Faster than medium
+- `whisper-distil-small.en` - Faster than small.en
+- `whisper-distil-medium.en` - Faster than medium.en
+
+Whisper Distilled (Multilingual, faster):
+- `whisper-distil-large-v2` - Faster than large-v2
+- `whisper-distil-large-v3` - Faster than large-v3
+- `whisper-distil-large-v3.5` - Latest distilled, fastest large variant
 
 SenseVoice (Special Features):
-- `sense-voice` - Multilingual with emotion detection (0.34s)
+- `sense-voice` - Multilingual with emotion detection
   - Languages: Chinese, English, Japanese, Korean, Cantonese
   - Returns emotion tags: `<|NEUTRAL|>`, `<|HAPPY|>`, `<|SAD|>`, etc.
   - Returns language tags: `<|en|>`, `<|zh|>`, `<|ja|>`, etc.
@@ -61,11 +76,14 @@ SenseVoice (Special Features):
 
 Models are cached in: `~/.cache/huggingface/hub/`
 
-**Speed benchmarks** are for ~13 second audio on Apple M-series.
+**Total: 26 models** (2 Parakeet, 19 Whisper variants, 5 distilled, 1 SenseVoice)
 
-**Tested and verified:** All models above have been tested and confirmed working.
-
-**Note**: The package automatically handles int8 quantized models and various file naming conventions.
+**Quantized Models**: Add `:int8` (or `:fp16`, etc.) suffix to any model to prefer quantized versions:
+- Example: `whisper-base.en:int8` (smaller size, minimal accuracy loss)
+- Benefits: 2-4x smaller file size, reduced memory usage
+- Performance: May be faster OR slower depending on hardware/backend - benchmark both versions
+- The package automatically handles quantized models and various file naming conventions
+- If no quantized version exists, falls back to regular version automatically
 
 ## sherpa-onnx Source Location
 

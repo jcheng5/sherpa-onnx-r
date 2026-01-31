@@ -463,16 +463,20 @@ OfflineRecognizer <- R6::R6Class(
     #' }
     print = function(...) {
       info <- private$model_info_cache
-      
+
       cat("<OfflineRecognizer>\n")
-      
+
       # Model information
       if (info$type == "huggingface") {
-        cat(sprintf("  Model: %s\n", info$repo))
+        model_display <- info$repo
+        if (!is.null(info$quantization)) {
+          model_display <- paste0(model_display, " (", info$quantization, ")")
+        }
+        cat(sprintf("  Model: %s\n", model_display))
       } else {
         # For local paths, try to extract a meaningful name
         model_name <- basename(info$path)
-        
+
         # If it looks like a HF cache path (hash), try to get the repo name from parent
         if (grepl("^[a-f0-9]{40}$", model_name)) {
           # Extract from path like models--user--repo/snapshots/hash
@@ -487,18 +491,22 @@ OfflineRecognizer <- R6::R6Class(
             }
           }
         }
-        
-        cat(sprintf("  Model: %s (local)\n", model_name))
+
+        model_display <- paste0(model_name, " (local)")
+        if (!is.null(info$quantization)) {
+          model_display <- paste0(model_name, " (local, ", info$quantization, ")")
+        }
+        cat(sprintf("  Model: %s\n", model_display))
       }
       cat(sprintf("  Type: %s\n", info$model_type))
-      
+
       # Provider and threads
       cat(sprintf("  Provider: %s\n", private$provider))
       cat(sprintf("  Threads: %d\n", private$num_threads))
-      
+
       # Verbose setting
       cat(sprintf("  Verbose: %s\n", private$default_verbose))
-      
+
       invisible(self)
     }
   )
