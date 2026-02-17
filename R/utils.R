@@ -141,5 +141,11 @@ cuda_available <- function() {
     "libonnxruntime_providers_cuda.so"
   }
 
+  # If using architecture-specific subdirectories, append to libs path
+  # (This is standard on Windows, but can occur on other platforms too)
+  if (nzchar(.Platform$r_arch)) {
+    lib_dir <- file.path(lib_dir, .Platform$r_arch)
+  }
+
   file.exists(file.path(lib_dir, cuda_lib))
 }
